@@ -44,6 +44,7 @@ tasks.named('processResources', ProcessResources) {
     filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
 }
 jar {
+    from('LICENSE')
     archiveFileName = "${base.archivesName.get()}-${project.version}-1.21.1-neoforge.jar"
     includeEmptyDirs = false
     exclude 'data/alexsmobs/**'
