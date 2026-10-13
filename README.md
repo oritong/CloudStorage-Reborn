@@ -31,6 +31,8 @@
 
 模组 ID 是 `cloudstorage_reborn`，配置文件是 `config/cloudstorage_reborn-common.toml`。
 
+如果客户端装了 Just Enough Characters（JEC），云箱里也可以用全拼或拼音首字母搜索。比如中文语言下，输入 `zuanshi` 或 `zs` 都能找到钻石。匹配遵循 JEC 的拼音设置；`@模组ID` 和 `#标签` 搜索照常使用。JEC 是可选联动，只需客户端安装，服务器不需要它。
+
 **旧存档说明：** 这个版本使用新的模组 ID，不会自动替换旧存档中的 `cloudstorage:*` 方块、物品和实体，也不会自动迁移旧模组的云库存档。
 
 ### 从源码构建
@@ -46,7 +48,7 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 开发测试可以运行 `gradlew.bat runGameTestServer` 和 `gradlew.bat -PclientSmokeTest runClient`。后者会检查物品模型和指南书，保存截图后自动退出。
 
-目前通过了编译、4 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、自动化、云箱菜单、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前通过了编译、5 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、自动化、云箱菜单、客户端搜索结果同步、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -81,6 +83,8 @@ Put this mod's JAR and `citadel-2.7.1-1.21.1.jar` in your instance's `mods` fold
 
 The mod ID is `cloudstorage_reborn`. Settings are in `config/cloudstorage_reborn-common.toml`.
 
+With Just Enough Characters (JEC) installed on the client, Cloud Chest searches also accept pinyin and initials. For example, with Chinese item names, `zuanshi` or `zs` will find diamonds. Matching follows your JEC settings, and `@modid` and `#tag` searches still work as usual. JEC is optional and only needed on the client; the server does not need it.
+
 **Existing worlds:** this port uses a new mod ID. It does not automatically replace blocks, items or entities registered under `cloudstorage:*`, or import the original mod's saved cloud inventories.
 
 ### Building
@@ -96,7 +100,7 @@ On Windows, run `.\gradlew.bat build`. The output is `build/libs/cloudstorage_re
 
 For development checks, run `./gradlew runGameTestServer` and `./gradlew -PclientSmokeTest runClient`. The client check renders the item models and guide book, saves screenshots, then exits.
 
-The port passes compilation, four server GameTests and client rendering checks. These cover cloud inventory saves and expansion, automation, chest menus, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+The port passes compilation, five server GameTests and client rendering checks. These cover cloud inventory saves and expansion, automation, chest menus, client search result synchronization, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

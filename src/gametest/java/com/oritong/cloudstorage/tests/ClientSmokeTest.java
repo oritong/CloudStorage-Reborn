@@ -1,6 +1,7 @@
 package com.oritong.cloudstorage.tests;
 
 import com.oritong.cloudstorage.CloudStorage;
+import com.oritong.cloudstorage.client.compat.JustEnoughCharactersCompat;
 import com.oritong.cloudstorage.block.CSBlockRegistry;
 import com.oritong.cloudstorage.item.BalloonItem;
 import com.oritong.cloudstorage.item.CSItemRegistry;
@@ -14,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import java.nio.file.Files;
@@ -34,6 +36,20 @@ public final class ClientSmokeTest {
         Minecraft client = Minecraft.getInstance();
         if (client.getOverlay() != null || client.screen == null || ++readyTicks < 40) return;
         started = true;
+        boolean expectJec = ModList.get().isLoaded("jecharacters");
+        if (JustEnoughCharactersCompat.isAvailable() != expectJec) {
+            throw new AssertionError("Unexpected JEC availability: expected " + expectJec);
+        }
+        String diamondName = "\u94bb\u77f3";
+        if (!JustEnoughCharactersCompat.contains(diamondName, diamondName)
+                || JustEnoughCharactersCompat.contains(diamondName, "nonsense")) {
+            throw new AssertionError("Literal search changed");
+        }
+        if (JustEnoughCharactersCompat.contains(diamondName, "zuanshi") != expectJec
+                || JustEnoughCharactersCompat.contains(diamondName, "zs") != expectJec) {
+            throw new AssertionError("Full pinyin or initials search failed");
+        }
+        CloudStorage.LOGGER.info("JEC_SEARCH_SMOKE_TEST_PASSED: optional dependency available={}", expectJec);
         String name = Component.translatable("itemGroup.cloudstorage_reborn").getString();
         if (!name.equals("云存储：涅槃") && !name.equals("Cloud Storage:Reborn")) {
             throw new AssertionError("Mod name did not translate: " + name);

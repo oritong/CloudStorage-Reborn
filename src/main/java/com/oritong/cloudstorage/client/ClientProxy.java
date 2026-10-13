@@ -20,6 +20,8 @@ import com.oritong.cloudstorage.item.CSItemRegistry;
 import com.oritong.cloudstorage.item.CloudBlowerItem;
 import com.oritong.cloudstorage.misc.CloudInfo;
 import com.oritong.cloudstorage.network.MessageLeftClickCloudBlower;
+import com.oritong.cloudstorage.network.MessageCloudSearchContents;
+import com.oritong.cloudstorage.client.compat.JustEnoughCharactersCompat;
 import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -290,6 +292,18 @@ public class ClientProxy extends CommonProxy {
 
     public Player getClientSidePlayer() {
         return Minecraft.getInstance().player;
+    }
+
+    @Override
+    public boolean matchesSearchText(String text, String query) {
+        return JustEnoughCharactersCompat.contains(text, query);
+    }
+
+    @Override
+    public void receiveCloudSearchContents(MessageCloudSearchContents message) {
+        if (Minecraft.getInstance().screen instanceof CloudChestScreen screen) {
+            screen.receiveSearchContents(message);
+        }
     }
 
     @OnlyIn(Dist.CLIENT)

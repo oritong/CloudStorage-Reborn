@@ -21,6 +21,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public class CloudChestMenu extends AbstractContainerMenu {
     private int scrollAmount;
@@ -29,6 +30,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final int playerInvEnd = 0;
     private final Map<ItemStack, Integer> restoreFromAfterSearch = new HashMap<>();
     public String currentSearch = "";
+    private SearchSnapshot pendingClientSearch;
 
     public CloudChestMenu(int id, Inventory playerInv) {
         this(id, playerInv, new SimpleContainer(CloudStorage.PROXY.getVisibleCloudSlots()));
@@ -70,7 +72,8 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 tooltipLines = Lists.newArrayList(stack.getHoverName());
             }
             for (Component line : tooltipLines) {
-                if (ChatFormatting.stripFormatting(line.getString()).toLowerCase(Locale.ROOT).contains(search)) {
+                String text = ChatFormatting.stripFormatting(line.getString()).toLowerCase(Locale.ROOT);
+                if (player.level().isClientSide() ? CloudStorage.PROXY.matchesSearchText(text, search) : text.contains(search)) {
                     matches = true;
                     break;
                 }
@@ -226,19 +229,25 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     public void updateGrays(Player player, String currentSearch) {
+        updateGrays(currentSearch, stack -> matchesSearch(player, currentSearch, stack));
+    }
+
+    private void updateGrays(String currentSearch, Predicate<ItemStack> matcher) {
         for (Slot slot : this.slots) {
             if (slot instanceof SlotCloudChest cloudChest) {
-                cloudChest.setGray(!currentSearch.isEmpty() && !matchesSearch(player, currentSearch, cloudChest.getItem()));
+                cloudChest.setGray(!currentSearch.isEmpty() && !matcher.test(cloudChest.getItem()));
             }
         }
     }
 
     public void removed(Player player) {
+        pendingClientSearch = null;
         super.removed(player);
         this.container.stopOpen(player);
     }
 
     public void sort(Comparator<ItemStack> comparator) {
+        pendingClientSearch = null;
         NonNullList<ItemStack> itemList = NonNullList.create();
 
         for (int i = 0; i < this.container.getContainerSize(); i++) {
@@ -257,6 +266,11 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     public void search(Player player, String search) {
+        search(player, search, stack -> matchesSearch(player, search, stack));
+    }
+
+    private void search(Player player, String search, Predicate<ItemStack> matcher) {
+        pendingClientSearch = null;
         if (search.isEmpty()) {
             if (!restoreFromAfterSearch.isEmpty()) {
                 List<ItemStack> extras = new ArrayList<>();
@@ -282,7 +296,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
             for (int i = 0; i < this.container.getContainerSize(); i++) {
                 ItemStack stack = container.getItem(i);
                 if (!stack.isEmpty()) {
-                    if (matchesSearch(player, search, stack)) {
+                    if (matcher.test(stack)) {
                         matches.add(stack);
                     } else {
                         noMatches.add(stack);
@@ -300,9 +314,49 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 container.setItem(j, matches.get(j));
             }
         }
-        updateGrays(player, search);
+        updateGrays(search, matcher);
         container.setChanged();
         broadcastChanges();
+    }
+
+    public record SearchSnapshot(int requestId, String search, List<ItemStack> items) {
+    }
+
+    private List<ItemStack> occupiedItems() {
+        List<ItemStack> items = new ArrayList<>();
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack stack = container.getItem(i);
+            if (!stack.isEmpty()) items.add(stack);
+        }
+        return items;
+    }
+
+    public SearchSnapshot beginClientSearch(int requestId, String search) {
+        pendingClientSearch = new SearchSnapshot(requestId, search, occupiedItems().stream().map(ItemStack::copy).toList());
+        return pendingClientSearch;
+    }
+
+    public SearchSnapshot getPendingClientSearch(int requestId) {
+        return pendingClientSearch != null && pendingClientSearch.requestId() == requestId ? pendingClientSearch : null;
+    }
+
+    public boolean finishClientSearch(Player player, int requestId, BitSet matches) {
+        var snapshot = getPendingClientSearch(requestId);
+        if (snapshot == null) return false;
+        if (matches.length() > snapshot.items().size()) {
+            pendingClientSearch = null;
+            return false;
+        }
+        List<ItemStack> items = occupiedItems();
+        // Shared inventories can change while the client is matching a snapshot.
+        if (items.size() != snapshot.items().size()) return false;
+        for (int i = 0; i < items.size(); i++) {
+            if (!ItemStack.matches(items.get(i), snapshot.items().get(i))) return false;
+        }
+        Set<ItemStack> matchedItems = Collections.newSetFromMap(new IdentityHashMap<>());
+        matches.stream().forEach(i -> matchedItems.add(items.get(i)));
+        search(player, snapshot.search(), matchedItems::contains);
+        return true;
     }
 
     public boolean isSlotGray(int i) {

@@ -11,6 +11,7 @@ import com.oritong.cloudstorage.misc.CSAdvancementTrigger;
 import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.misc.CloudInfo;
 import com.oritong.cloudstorage.network.MessageUpdateCloudInfo;
+import com.oritong.cloudstorage.network.MessageCloudSearchContents;
 import com.oritong.cloudstorage.world.CSWorldData;
 import com.oritong.cloudstorage.world.SkyMobSpawner;
 import net.minecraft.advancements.CriteriaTriggers;
@@ -94,6 +95,13 @@ public class CommonProxy {
 
     public Player getClientSidePlayer() {
         return null;
+    }
+
+    public boolean matchesSearchText(String text, String query) {
+        return text.contains(query);
+    }
+
+    public void receiveCloudSearchContents(MessageCloudSearchContents message) {
     }
 
     public void processSortPacket(Player player, int type) {

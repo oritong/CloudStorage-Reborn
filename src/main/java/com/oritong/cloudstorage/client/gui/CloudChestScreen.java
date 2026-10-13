@@ -3,6 +3,10 @@ package com.oritong.cloudstorage.client.gui;
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.inventory.CloudChestMenu;
 import com.oritong.cloudstorage.network.MessageSearchCloudChest;
+import com.oritong.cloudstorage.network.MessageRequestCloudSearch;
+import com.oritong.cloudstorage.network.MessageCloudSearchContents;
+import com.oritong.cloudstorage.network.MessageCloudSearchMatches;
+import com.oritong.cloudstorage.client.compat.JustEnoughCharactersCompat;
 import com.oritong.cloudstorage.network.MessageSortCloudChest;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
@@ -18,6 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.BitSet;
 
 public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
 
@@ -32,6 +37,10 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     private EditBox searchBox;
     public int mode = 0;
     private boolean ignoreTextInput;
+    private int searchRequestId;
+    private String requestedSearch = "";
+    private int receivedSearchItems;
+    private final BitSet searchMatches = new BitSet();
 
     public CloudChestScreen(CloudChestMenu menu, Inventory playerInv, Component component) {
         super(menu, playerInv, component);
@@ -48,6 +57,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     public void resetButtons() {
+        String previousSearch = mode == 2 && searchBox != null ? searchBox.getValue() : "";
         this.clearWidgets();
         int i = this.leftPos;
         int j = this.topPos;
@@ -67,6 +77,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         }));
         this.searchBox = new EditBox(this.font, this.leftPos + 82, this.topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
         this.searchBox.setMaxLength(50);
+        this.searchBox.setValue(previousSearch);
         this.searchBox.setBordered(false);
         this.searchBox.setVisible(mode == 2);
         this.searchBox.setFocused(mode == 2);
@@ -131,9 +142,34 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     private void searchFor(String s) {
+        ++searchRequestId;
+        requestedSearch = s;
+        receivedSearchItems = 0;
+        searchMatches.clear();
         this.menu.scrollTo(0.0F, true);
-        CloudStorage.sendMSGToServer(new MessageSearchCloudChest(s));
+        if (!s.isEmpty() && !s.startsWith("@") && !s.startsWith("#") && JustEnoughCharactersCompat.isAvailable()) {
+            CloudStorage.sendMSGToServer(new MessageRequestCloudSearch(menu.containerId, searchRequestId, s));
+        } else {
+            CloudStorage.sendMSGToServer(new MessageSearchCloudChest(s));
+        }
         this.menu.updateGrays(minecraft.player, s);
+    }
+
+    public void receiveSearchContents(MessageCloudSearchContents message) {
+        if (message.containerId() != menu.containerId || message.requestId() != searchRequestId
+                || !message.search().equals(requestedSearch)) return;
+        if (message.offset() == 0) {
+            receivedSearchItems = 0;
+            searchMatches.clear();
+        }
+        if (message.offset() != receivedSearchItems || (long) message.offset() + message.items().size() > message.total()) return;
+        for (var stack : message.items()) {
+            if (CloudChestMenu.matchesSearch(minecraft.player, requestedSearch, stack)) searchMatches.set(receivedSearchItems);
+            receivedSearchItems++;
+        }
+        if (receivedSearchItems == message.total()) {
+            CloudStorage.sendMSGToServer(new MessageCloudSearchMatches(menu.containerId, searchRequestId, (BitSet) searchMatches.clone()));
+        }
     }
 
     protected void renderLabels(GuiGraphics guiGraphics, int x, int y) {
@@ -253,7 +289,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     protected void containerTick() {
-        if(this.prevScrollOffs != scrollOffs){
+        if(this.mode == 2 || this.prevScrollOffs != scrollOffs){
             this.menu.updateGrays(minecraft.player, this.searchBox.getValue().toLowerCase(Locale.ROOT));
         }
         this.prevScrollOffs = scrollOffs;
