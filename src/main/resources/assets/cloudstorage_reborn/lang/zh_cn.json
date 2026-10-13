@@ -1,5 +1,7 @@
 {
   "itemGroup.cloudstorage_reborn": "云存储：涅槃",
+  "config.cloudstorage_reborn.beyond_dimensions_storage": "超越维度存储联动（WIP）",
+  "config.cloudstorage_reborn.beyond_dimensions_transfer_interval_seconds": "后台转存间隔（秒）",
   "entity.cloudstorage_reborn.badloon": "恶气球",
   "entity.cloudstorage_reborn.badloon_hand": "恶气球的手套",
   "entity.cloudstorage_reborn.balloon": "气球",

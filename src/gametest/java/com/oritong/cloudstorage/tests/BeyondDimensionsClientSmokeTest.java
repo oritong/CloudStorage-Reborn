@@ -39,6 +39,8 @@ public final class BeyondDimensionsClientSmokeTest {
     private static volatile int phase;
     private static int ticks;
     private static int frames;
+    private static int nextTransferTick;
+    private static volatile boolean intervalChecked;
     private static CloudChestBlockEntity chest;
     private static IItemHandler destination;
 
@@ -62,6 +64,7 @@ public final class BeyondDimensionsClientSmokeTest {
         if (!Boolean.getBoolean("cloudstorage_reborn.beyondDimensionsSmokeTest")) return;
         if (event.getServer().getPlayerList().getPlayers().isEmpty()) return;
         var player = event.getServer().getPlayerList().getPlayers().getFirst();
+        int serverTick = event.getServer().getTickCount();
         if (phase == 1) {
             var level = player.serverLevel();
             var netClass = Class.forName("com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet");
@@ -79,15 +82,39 @@ public final class BeyondDimensionsClientSmokeTest {
             level.setBlockAndUpdate(pos, CSBlockRegistry.CLOUD_CHEST.get().defaultBlockState());
             chest = (CloudChestBlockEntity) level.getBlockEntity(pos);
             chest.setBalloonColorFor(player, cloud.getBalloonColor());
+            if (CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.get() != 5)
+                throw new AssertionError("Background transfer interval should default to five seconds");
+            CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.set(60);
             CloudStorage.CONFIG.beyondDimensionsStorage.set(true);
-            phase = 2;
             CloudStorage.sendNonLocal(new MessageOpenCloudChest(27), player);
             player.openMenu(chest.getMenuProvider());
             if (!cloud.getContainer().isEmpty() || destination.getStackInSlot(0).getCount() != 12)
                 throw new AssertionError("Cloud items did not enter the personal network before opening its screen");
-            // Deposit another upload while the dimensional screen is open; the normal tick must move it.
+            CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.set(5);
+            phase = 7;
+        } else if (phase == 7 && serverTick % 100 == 1) {
+            // Start just after a scheduled scan so a regression to one-second scanning is observable.
+            var cloud = CSWorldData.get(player.level()).getPrivateCloud(player.getUUID(), 0xABCDEF);
             cloud.getContainer().setItem(11, new ItemStack(Items.GOLD_INGOT, 7));
+            nextTransferTick = serverTick + 99;
+            intervalChecked = false;
+            phase = 2;
+        } else if (phase == 2) {
+            checkInterval(serverTick, Items.GOLD_INGOT, 7, 5);
         } else if (phase == 3) {
+            CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.set(1);
+            phase = 8;
+        } else if (phase == 8 && serverTick % 20 == 1) {
+            var cloud = CSWorldData.get(player.level()).getPrivateCloud(player.getUUID(), 0xABCDEF);
+            cloud.getContainer().setItem(12, new ItemStack(Items.COPPER_INGOT, 4));
+            nextTransferTick = serverTick + 19;
+            intervalChecked = false;
+            phase = 9;
+        } else if (phase == 9) {
+            checkInterval(serverTick, Items.COPPER_INGOT, 4, 1);
+        } else if (phase == 10) {
+            // Menu invalidation must still take effect immediately, even with a long scan interval.
+            CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.set(60);
             CloudStorage.CONFIG.beyondDimensionsStorage.set(false);
             phase = 6;
         } else if (phase == 6 && player.containerMenu == player.inventoryMenu) {
@@ -98,6 +125,22 @@ public final class BeyondDimensionsClientSmokeTest {
             CloudStorage.sendNonLocal(new MessageOpenCloudChest(27), player);
             player.openMenu(chest.getMenuProvider());
             if (!(player.containerMenu instanceof CloudChestMenu)) throw new AssertionError("Disabling integration did not restore ordinary menus");
+        }
+    }
+
+    private static void checkInterval(int serverTick, net.minecraft.world.item.Item item, int expectedCount, int seconds) {
+        int actualCount = 0;
+        for (int slot = 0; slot < destination.getSlots(); slot++) {
+            ItemStack stack = destination.getStackInSlot(slot);
+            if (stack.is(item)) actualCount += stack.getCount();
+        }
+        if (serverTick < nextTransferTick && actualCount != 0)
+            throw new AssertionError("Background transfer ran before the configured interval");
+        if (serverTick > nextTransferTick + 2 && actualCount != expectedCount)
+            throw new AssertionError("Background transfer ignored the configured interval");
+        if (actualCount == expectedCount && !intervalChecked) {
+            intervalChecked = true;
+            CloudStorage.LOGGER.info("BEYOND_DIMENSIONS_INTERVAL_PASSED: {} seconds", seconds);
         }
     }
 
@@ -124,6 +167,14 @@ public final class BeyondDimensionsClientSmokeTest {
             CloudStorage.LOGGER.info("BEYOND_DIMENSIONS_SCREEN_PASSED: transferred items reached the client's dimensional storage screen");
             frames = 0;
             phase = 3;
+        } else if (phase == 9 && intervalChecked) {
+            Object storage = client.player.containerMenu.getClass().getField("storage").get(client.player.containerMenu);
+            Class<?> key = Class.forName("com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey");
+            Class<?> keyApi = Class.forName("com.wintercogs.beyonddimensions.api.storage.key.IStackKey");
+            Object copper = storage.getClass().getMethod("getStackByKey", keyApi).invoke(storage,
+                    key.getConstructor(ItemStack.class).newInstance(new ItemStack(Items.COPPER_INGOT)));
+            if ((long) copper.getClass().getMethod("amount").invoke(copper) != 4L) return;
+            phase = 10;
         } else if (phase == 4 && client.player.containerMenu instanceof CloudChestMenu menu) {
             if (menu.slots.stream().noneMatch(slot -> slot.getItem().is(Items.APPLE) && slot.getItem().getCount() == 6)) return;
             if (++frames < 40) return;

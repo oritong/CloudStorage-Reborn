@@ -33,18 +33,19 @@
 
 如果客户端装了 Just Enough Characters（JEC），云箱里也可以用全拼或拼音首字母搜索。比如中文语言下，输入 `zuanshi` 或 `zs` 都能找到钻石。匹配遵循 JEC 的拼音设置；`@模组ID` 和 `#标签` 搜索照常使用。JEC 是可选联动，只需客户端安装，服务器不需要它。
 
-### 超越维度联动
+### 超越维度联动（WIP）
 
 如果也安装了 Beyond Dimensions（超越维度），可以让私人云库存使用自己的维度网络。它是可选联动，默认关闭。在 `config/cloudstorage_reborn-common.toml` 中开启：
 
 ```toml
 [integration]
-beyond_dimensions_storage = true
+beyond_dimensions_storage = true # WIP
+beyond_dimensions_transfer_interval_seconds = 5 # 1～60 秒
 ```
 
 联机时由服务器配置决定是否开启；双方都需要安装超越维度才能使用它的存储界面。先在超越维度里开通自己的网络，并将它设为主网络。云箱仍需要气球、已上传的云空间和原有的天空条件。
 
-开启后，玩家在线时，已有库存和新上传的物品会每秒尝试转存一次；打开普通云箱时也会立即转存。不同颜色的私人云库存会汇入同一个个人主网络，普通云箱打开这个网络的存储界面，可以直接存取物品。存储容量由超越维度决定，上传箱子增加的云槽位不会给维度网络扩容。
+开启后，玩家在线时，已有库存和新上传的物品默认每 5 秒尝试转存一次，可通过 `beyond_dimensions_transfer_interval_seconds` 调整为 1～60 秒（按 20 tick/秒计）。打开普通云箱时仍会立即转存，不受后台间隔影响。不同颜色的私人云库存会汇入同一个个人主网络，普通云箱打开这个网络的存储界面，可以直接存取物品。存储容量由超越维度决定，上传箱子增加的云槽位不会给维度网络扩容。
 
 只有自己拥有的主网络会接收物品。没有网络、主网络属于别人或容量不足时，未转存的物品留在云库存里；对应云箱会打开原来的界面，方便取回剩余物品。静电公共库存、战利品库存和其他玩家的私人库存不参与转存。
 
@@ -104,18 +105,19 @@ The mod ID is `cloudstorage_reborn`. Settings are in `config/cloudstorage_reborn
 
 With Just Enough Characters (JEC) installed on the client, Cloud Chest searches also accept pinyin and initials. For example, with Chinese item names, `zuanshi` or `zs` will find diamonds. Matching follows your JEC settings, and `@modid` and `#tag` searches still work as usual. JEC is optional and only needed on the client; the server does not need it.
 
-### Beyond Dimensions Integration
+### Beyond Dimensions Integration (WIP)
 
 If you also use Beyond Dimensions, your private clouds can feed into your own dimensional network. This is optional and disabled by default. Enable it in `config/cloudstorage_reborn-common.toml`:
 
 ```toml
 [integration]
-beyond_dimensions_storage = true
+beyond_dimensions_storage = true # WIP
+beyond_dimensions_transfer_interval_seconds = 5 # 1-60 seconds
 ```
 
 In multiplayer, the server controls this setting. Both sides need Beyond Dimensions to use its storage screen. Create your own network in Beyond Dimensions and make it your primary network first. Cloud Chests still need a balloon, uploaded cloud space and the usual sky access.
 
-While you are online, existing cloud items and new uploads are transferred once per second, and opening a regular Cloud Chest also attempts a transfer immediately. All of your private balloon colors feed the same personal primary network. Regular Cloud Chests open that network's storage screen so you can deposit and withdraw items there. Beyond Dimensions controls its capacity; uploading more chests does not expand the dimensional network.
+While you are online, existing cloud items and new uploads are transferred every 5 seconds by default. Set `beyond_dimensions_transfer_interval_seconds` to any value from 1 to 60 seconds (measured at 20 ticks per second). Opening a regular Cloud Chest still attempts a transfer immediately, regardless of the background interval. All of your private balloon colors feed the same personal primary network. Regular Cloud Chests open that network's storage screen so you can deposit and withdraw items there. Beyond Dimensions controls its capacity; uploading more chests does not expand the dimensional network.
 
 Only a primary network you own can receive your items. If you have no network, your primary network belongs to someone else, or it cannot accept everything, the remaining items stay in cloud storage. A chest with remaining items opens its ordinary screen so you can retrieve them. Public/static clouds, loot clouds and other players' private inventories are excluded.
 

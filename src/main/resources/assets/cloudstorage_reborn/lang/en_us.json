@@ -1,5 +1,7 @@
 {
   "itemGroup.cloudstorage_reborn": "Cloud Storage:Reborn",
+  "config.cloudstorage_reborn.beyond_dimensions_storage": "Beyond Dimensions storage (WIP)",
+  "config.cloudstorage_reborn.beyond_dimensions_transfer_interval_seconds": "Background transfer interval (seconds)",
   "entity.cloudstorage_reborn.badloon": "Badloon",
   "entity.cloudstorage_reborn.badloon_hand": "Badloon's Glove",
   "entity.cloudstorage_reborn.balloon": "Balloon",

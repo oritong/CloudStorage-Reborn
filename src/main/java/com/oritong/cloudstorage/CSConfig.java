@@ -5,6 +5,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public class CSConfig {
 
     public final ModConfigSpec.BooleanValue beyondDimensionsStorage;
+    public final ModConfigSpec.IntValue beyondDimensionsTransferIntervalSeconds;
     public final ModConfigSpec.IntValue maxCloudSlots;
     public final ModConfigSpec.IntValue maxStaticCloudSlots;
     public final ModConfigSpec.DoubleValue cloudChestOpenDistance;
@@ -36,11 +37,17 @@ public class CSConfig {
         builder.pop();
         builder.push("integration");
         beyondDimensionsStorage = builder.comment(
-                "Connect private cloud storage to the player's own primary Beyond Dimensions network. Requires Beyond Dimensions; optional and disabled by default.",
+                "Connect private cloud storage to the player's own primary Beyond Dimensions network (WIP). Requires Beyond Dimensions; optional and disabled by default.",
                 "Existing items and future uploads move to that network while the owner is online. Ordinary cloud chests open its storage screen.",
                 "Only a network owned by the player is used. Missing networks and insertion remainders stay in cloud storage.",
                 "Static/public clouds and loot clouds are excluded. Disabling does not move transferred items back.")
+                .translation("config.cloudstorage_reborn.beyond_dimensions_storage")
                 .define("beyond_dimensions_storage", false);
+        beyondDimensionsTransferIntervalSeconds = builder.comment(
+                "Seconds between background Beyond Dimensions transfer attempts while the owner is online. Default: 5; range: 1-60.",
+                "Opening a cloud chest still attempts an immediate transfer, regardless of this interval.")
+                .translation("config.cloudstorage_reborn.beyond_dimensions_transfer_interval_seconds")
+                .defineInRange("beyond_dimensions_transfer_interval_seconds", 5, 1, 60);
         builder.pop();
         builder.push("village");
         balloonSalesmanVillager = builder.comment(" whether the balloon salesman villager is enabled or not").translation("balloon_salesman_villager").define("balloon_salesman_villager", true);

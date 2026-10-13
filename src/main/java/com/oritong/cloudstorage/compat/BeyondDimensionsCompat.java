@@ -144,7 +144,8 @@ public final class BeyondDimensionsCompat {
                 iterator.remove();
             }
         }
-        if (event.getServer().getTickCount() % 20 != 0 || getApi() == null) return;
+        int transferIntervalTicks = CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.get() * 20;
+        if (event.getServer().getTickCount() % transferIntervalTicks != 0 || getApi() == null) return;
         CSWorldData data = CSWorldData.get(event.getServer().overworld());
         if (data == null) return;
         for (Player player : event.getServer().getPlayerList().getPlayers()) {
