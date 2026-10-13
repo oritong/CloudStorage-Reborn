@@ -125,6 +125,10 @@ public class CloudChestBlockEntity extends AbstractCloudChestBlockEntity {
         if(data != null && this.hasBalloonFor(player) && !hasNoInvSpace(player)){
             CloudIndex cloudIndex = getOrInitializePrivateCloud(data, player);
             if(cloudIndex != null && cloudIndex.getContainerSize() > 0){
+                if (!hasLootBalloon()) {
+                    AbstractContainerMenu linked = com.oritong.cloudstorage.compat.BeyondDimensionsCompat.createMenu(i, playerInventory, cloudIndex);
+                    if (linked != null) return linked;
+                }
                 return new CloudChestMenu(i, playerInventory, cloudIndex.getContainer());
             }
         }

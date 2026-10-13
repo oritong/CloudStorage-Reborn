@@ -33,6 +33,23 @@
 
 如果客户端装了 Just Enough Characters（JEC），云箱里也可以用全拼或拼音首字母搜索。比如中文语言下，输入 `zuanshi` 或 `zs` 都能找到钻石。匹配遵循 JEC 的拼音设置；`@模组ID` 和 `#标签` 搜索照常使用。JEC 是可选联动，只需客户端安装，服务器不需要它。
 
+### 超越维度联动
+
+如果也安装了 Beyond Dimensions（超越维度），可以让私人云库存使用自己的维度网络。它是可选联动，默认关闭。在 `config/cloudstorage_reborn-common.toml` 中开启：
+
+```toml
+[integration]
+beyond_dimensions_storage = true
+```
+
+联机时由服务器配置决定是否开启；双方都需要安装超越维度才能使用它的存储界面。先在超越维度里开通自己的网络，并将它设为主网络。云箱仍需要气球、已上传的云空间和原有的天空条件。
+
+开启后，玩家在线时，已有库存和新上传的物品会每秒尝试转存一次；打开普通云箱时也会立即转存。不同颜色的私人云库存会汇入同一个个人主网络，普通云箱打开这个网络的存储界面，可以直接存取物品。存储容量由超越维度决定，上传箱子增加的云槽位不会给维度网络扩容。
+
+只有自己拥有的主网络会接收物品。没有网络、主网络属于别人或容量不足时，未转存的物品留在云库存里；对应云箱会打开原来的界面，方便取回剩余物品。静电公共库存、战利品库存和其他玩家的私人库存不参与转存。
+
+把开关改回 `false` 就会恢复普通云存储。已经转存的物品仍在原维度网络里，需要从超越维度取出；关闭开关、换主网络或卸载超越维度都不会把它们自动搬回来。切换个人主网络后，之后的物品会存入新的主网络。
+
 **旧存档说明：** 这个版本使用新的模组 ID，不会自动替换旧存档中的 `cloudstorage:*` 方块、物品和实体，也不会自动迁移旧模组的云库存档。
 
 ### 从源码构建
@@ -48,7 +65,9 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 开发测试可以运行 `gradlew.bat runGameTestServer` 和 `gradlew.bat -PclientSmokeTest runClient`。后者会检查物品模型和指南书，保存截图后自动退出。
 
-目前通过了编译、5 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、自动化、云箱菜单、客户端搜索结果同步、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+超越维度的联动测试可通过 `-PbeyondDimensionsTestJar=本地JAR路径` 加载它的运行库，运行 `runGameTestServer`，或加上 `-PbeyondDimensionsSmokeTest runClient` 检查两个存储界面的同步与渲染。目前使用超越维度 0.7.30 完成了实际存取测试；联动接口也按仓库中的 0.8.0-alpha.1 源码核对过。
+
+目前通过了编译、7 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、自动化、云箱菜单、客户端搜索结果同步、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -85,6 +104,23 @@ The mod ID is `cloudstorage_reborn`. Settings are in `config/cloudstorage_reborn
 
 With Just Enough Characters (JEC) installed on the client, Cloud Chest searches also accept pinyin and initials. For example, with Chinese item names, `zuanshi` or `zs` will find diamonds. Matching follows your JEC settings, and `@modid` and `#tag` searches still work as usual. JEC is optional and only needed on the client; the server does not need it.
 
+### Beyond Dimensions Integration
+
+If you also use Beyond Dimensions, your private clouds can feed into your own dimensional network. This is optional and disabled by default. Enable it in `config/cloudstorage_reborn-common.toml`:
+
+```toml
+[integration]
+beyond_dimensions_storage = true
+```
+
+In multiplayer, the server controls this setting. Both sides need Beyond Dimensions to use its storage screen. Create your own network in Beyond Dimensions and make it your primary network first. Cloud Chests still need a balloon, uploaded cloud space and the usual sky access.
+
+While you are online, existing cloud items and new uploads are transferred once per second, and opening a regular Cloud Chest also attempts a transfer immediately. All of your private balloon colors feed the same personal primary network. Regular Cloud Chests open that network's storage screen so you can deposit and withdraw items there. Beyond Dimensions controls its capacity; uploading more chests does not expand the dimensional network.
+
+Only a primary network you own can receive your items. If you have no network, your primary network belongs to someone else, or it cannot accept everything, the remaining items stay in cloud storage. A chest with remaining items opens its ordinary screen so you can retrieve them. Public/static clouds, loot clouds and other players' private inventories are excluded.
+
+Set the option back to `false` to return to ordinary cloud storage. Items already transferred stay in their original dimensional network and must be retrieved through Beyond Dimensions. Disabling the option, switching networks or removing Beyond Dimensions does not move them back. Once you switch to another personal primary network, future transfers go there.
+
 **Existing worlds:** this port uses a new mod ID. It does not automatically replace blocks, items or entities registered under `cloudstorage:*`, or import the original mod's saved cloud inventories.
 
 ### Building
@@ -100,7 +136,9 @@ On Windows, run `.\gradlew.bat build`. The output is `build/libs/cloudstorage_re
 
 For development checks, run `./gradlew runGameTestServer` and `./gradlew -PclientSmokeTest runClient`. The client check renders the item models and guide book, saves screenshots, then exits.
 
-The port passes compilation, five server GameTests and client rendering checks. These cover cloud inventory saves and expansion, automation, chest menus, client search result synchronization, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+To check the integration, supply `-PbeyondDimensionsTestJar=/path/to/local.jar` and run `runGameTestServer`, or add `-PbeyondDimensionsSmokeTest runClient` to check synchronization and rendering of both storage screens. Actual storage operations have been tested with Beyond Dimensions 0.7.30. The bridge's API signatures were also checked against the supplied 0.8.0-alpha.1 source.
+
+The port passes compilation, seven server GameTests and client rendering checks. These cover cloud inventory saves and expansion, automation, chest menus, client search result synchronization, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

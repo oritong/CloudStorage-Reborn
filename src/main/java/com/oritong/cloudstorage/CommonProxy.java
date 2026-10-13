@@ -71,6 +71,8 @@ public class CommonProxy {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onMobVisiblity);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onVillagerTrades);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onServerTick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(com.oritong.cloudstorage.compat.BeyondDimensionsCompat::onServerTick);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(com.oritong.cloudstorage.compat.BeyondDimensionsCompat::onServerStopped);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onPlayerCraft);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onPlayerPickup);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(this::onPlayerOpenContainer);

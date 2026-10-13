@@ -14,6 +14,9 @@ neoForge {
     runs {
         client {
             client()
+            if (project.hasProperty('beyondDimensionsSmokeTest')) {
+                systemProperty 'cloudstorage_reborn.beyondDimensionsSmokeTest', 'true'
+            }
             if (project.hasProperty('clientSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.clientSmokeTest', 'true'
             }
@@ -34,6 +37,10 @@ neoForge {
 
 dependencies {
     implementation files('libs/citadel-2.7.1-1.21.1.jar')
+    // Optional local runtime JAR for integration checks; never bundled or required to build.
+    if (project.hasProperty('beyondDimensionsTestJar')) {
+        runtimeOnly files(project.property('beyondDimensionsTestJar'))
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

@@ -4,6 +4,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 public class CSConfig {
 
+    public final ModConfigSpec.BooleanValue beyondDimensionsStorage;
     public final ModConfigSpec.IntValue maxCloudSlots;
     public final ModConfigSpec.IntValue maxStaticCloudSlots;
     public final ModConfigSpec.DoubleValue cloudChestOpenDistance;
@@ -32,6 +33,14 @@ public class CSConfig {
         maxStaticCloudSlots = builder.comment(" maximum slots that can be uploaded to a static cloud chest. A vanilla chest has 27 slots.").translation("max_static_cloud_slots").defineInRange("max_static_cloud_slots", 4096, 27, Integer.MAX_VALUE);
         cloudChestOpenDistance = builder.comment(" how far from a player will cloud chests play an opening animation").translation("cloud_chest_open_distance").defineInRange("cloud_chest_open_distance", 6.0D, 1.5D, 16.0D);
         cloudChestNeedsSkyAccess = builder.comment(" whether the cloud chest needs sky access to function").translation("cloud_chest_needs_sky_access").define("cloud_chest_needs_sky_access", true);
+        builder.pop();
+        builder.push("integration");
+        beyondDimensionsStorage = builder.comment(
+                "Connect private cloud storage to the player's own primary Beyond Dimensions network. Requires Beyond Dimensions; optional and disabled by default.",
+                "Existing items and future uploads move to that network while the owner is online. Ordinary cloud chests open its storage screen.",
+                "Only a network owned by the player is used. Missing networks and insertion remainders stay in cloud storage.",
+                "Static/public clouds and loot clouds are excluded. Disabling does not move transferred items back.")
+                .define("beyond_dimensions_storage", false);
         builder.pop();
         builder.push("village");
         balloonSalesmanVillager = builder.comment(" whether the balloon salesman villager is enabled or not").translation("balloon_salesman_villager").define("balloon_salesman_villager", true);
