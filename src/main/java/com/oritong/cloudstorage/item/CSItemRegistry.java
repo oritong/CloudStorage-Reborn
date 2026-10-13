@@ -1,0 +1,79 @@
+package com.oritong.cloudstorage.item;
+
+import com.github.alexthe666.citadel.server.block.LecternBooks;
+import com.oritong.cloudstorage.CloudStorage;
+import com.oritong.cloudstorage.entity.BalloonEntity;
+import com.oritong.cloudstorage.entity.CSEntityRegistry;
+import com.oritong.cloudstorage.misc.CSSoundRegistry;
+import net.minecraft.core.dispenser.BlockSource;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Position;
+import net.minecraft.core.dispenser.DefaultDispenseItemBehavior;
+import net.minecraft.world.entity.projectile.Arrow;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.neoforged.neoforge.common.DeferredSpawnEggItem;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.neoforged.neoforge.registries.DeferredHolder;
+
+public class CSItemRegistry {
+    public static final DeferredRegister<Item> DEF_REG = DeferredRegister.create(Registries.ITEM, CloudStorage.MODID);
+    public static final DeferredHolder<Item, Item> SPAWN_EGG_BADLOON = DEF_REG.register("spawn_egg_badloon", () -> new DeferredSpawnEggItem(CSEntityRegistry.BADLOON, 0XE72929, 0XEEE7E1, new Item.Properties()));
+    public static final DeferredHolder<Item, Item> SPAWN_EGG_BLOVIATOR = DEF_REG.register("spawn_egg_bloviator", () -> new DeferredSpawnEggItem(CSEntityRegistry.BLOVIATOR, 0XDFF3F7, 0X24AFFF, new Item.Properties()));
+    public static final DeferredHolder<Item, Item> BALLOON_BIT = DEF_REG.register("balloon_bit", () -> new Item(new Item.Properties()));
+    public static final DeferredHolder<Item, Item> GUIDE_BOOK = DEF_REG.register("guide_book", () -> new GuideBookItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredHolder<Item, Item> BALLOON_INVENTORY = DEF_REG.register("balloon_inventory", () -> new InventoryOnlyItem(new Item.Properties()));
+    public static final DeferredHolder<Item, Item> BALLOON = DEF_REG.register("balloon", () -> new BalloonItem());
+    public static final DeferredHolder<Item, Item> ANGRY_CLOUD_IN_A_BOTTLE = DEF_REG.register("angry_cloud_in_a_bottle", () -> new CloudBottleItem(false));
+    public static final DeferredHolder<Item, Item> HAPPY_CLOUD_IN_A_BOTTLE = DEF_REG.register("happy_cloud_in_a_bottle", () -> new CloudBottleItem(true));
+    public static final DeferredHolder<Item, Item> BALLOON_BUDDY_INVENTORY = DEF_REG.register("balloon_buddy_inventory", () -> new InventoryOnlyItem(new Item.Properties()));
+    public static final DeferredHolder<Item, Item> BALLOON_BUDDY = DEF_REG.register("balloon_buddy", () -> new BalloonBuddyItem());
+    public static final DeferredHolder<Item, Item> BALLOON_ARROW = DEF_REG.register("balloon_arrow", () -> new BalloonArrowItem());
+    public static final DeferredHolder<Item, Item> PROPELLER_HAT = DEF_REG.register("propeller_hat", () -> new PropellerHatItem());
+    public static final DeferredHolder<Item, Item> COTTON_CANDY = DEF_REG.register("cotton_candy", () -> new Item(new Item.Properties().food((new FoodProperties.Builder()).nutrition(4).saturationModifier(0.15F).fast().build())));
+    public static final DeferredHolder<Item, Item> CLOUD_BLOWER_INVENTORY = DEF_REG.register("cloud_blower_inventory", () -> new InventoryOnlyItem(new Item.Properties()));
+    public static final DeferredHolder<Item, Item> CLOUD_BLOWER = DEF_REG.register("cloud_blower", () -> new CloudBlowerItem());
+    public static final DeferredHolder<Item, Item> MUSIC_DISC_DRIFT = DEF_REG.register("music_disc_drift", () -> new Item(new Item.Properties().stacksTo(1).rarity(Rarity.RARE).jukeboxPlayable(net.minecraft.resources.ResourceKey.create(Registries.JUKEBOX_SONG, net.minecraft.resources.ResourceLocation.parse("cloudstorage_reborn:drift")))));
+
+    public static void registerDispenserBehavior(){
+        LecternBooks.BOOKS.put(GUIDE_BOOK.getId(), new LecternBooks.BookData(0XDE2727, 0XD6D6D6));
+        DispenserBlock.registerBehavior(BALLOON.get(), BalloonDispenseBehavior.INSTANCE);
+        DispenserBlock.registerBehavior(BALLOON_ARROW.get(), new DefaultDispenseItemBehavior() {
+
+            public ItemStack execute(BlockSource source, ItemStack stack) {
+                Level level = source.level();
+                Position position = DispenserBlock.getDispensePosition(source);
+                Direction direction = source.state().getValue(DispenserBlock.FACING);
+                Projectile projectile = this.getProjectile(level, position, stack);
+                projectile.shoot((double)direction.getStepX(), (double)((float)direction.getStepY() + 0.1F), (double)direction.getStepZ(), 1.1F, 6.0F);
+                level.addFreshEntity(projectile);
+                BalloonEntity balloon = CSEntityRegistry.BALLOON.get().create(level);
+                balloon.copyPosition(projectile);
+                balloon.setDeltaMovement(projectile.getDeltaMovement());
+                balloon.setChildId(projectile.getUUID());
+                balloon.setBalloonColor(BalloonArrowItem.getBalloonColor(stack));
+                balloon.setStringLength(0);
+                balloon.setArrow(true);
+                level.addFreshEntity(balloon);
+                stack.shrink(1);
+                return stack;
+            }
+
+            /**
+             * Return the projectile entity spawned by this dispense behavior.
+             */
+            protected Projectile getProjectile(Level worldIn, Position position, ItemStack stackIn) {
+                Arrow arrow = new Arrow(worldIn, position.x(), position.y(), position.z(), stackIn.copyWithCount(1), null);
+                arrow.pickup = Arrow.Pickup.ALLOWED;
+                return arrow;
+            }
+        });
+    }
+}

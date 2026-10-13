@@ -4,7 +4,7 @@ plugins {
 }
 
 version = '1.0.0'
-group = 'com.github.alexthe668.cloudstorage'
+group = 'com.oritong.cloudstorage'
 base.archivesName = 'cloudstorage_reborn'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 sourceSets.main.java.srcDir 'src/gametest/java'
@@ -48,7 +48,7 @@ jar {
     archiveFileName = "${base.archivesName.get()}-${project.version}-1.21.1-neoforge.jar"
     includeEmptyDirs = false
     exclude 'data/alexsmobs/**'
-    exclude 'com/github/alexthe668/cloudstorage/tests/**'
+    exclude 'com/oritong/cloudstorage/tests/**'
     exclude 'data/cloudstorage_reborn/structure/empty.nbt'
     manifest.attributes('Implementation-Version': project.version)
 }
