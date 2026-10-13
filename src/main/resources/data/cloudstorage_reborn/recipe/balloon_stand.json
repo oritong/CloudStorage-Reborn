@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "CSC",
+    "CFC"
+  ],
+  "key": {
+    "B": {
+      "item": "cloudstorage_reborn:balloon"
+    },
+    "S": {
+      "tag": "c:strings"
+    },
+    "C": {
+      "tag": "c:ingots/copper"
+    },
+    "F": {
+      "tag": "c:fences/wooden"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "cloudstorage_reborn:balloon_stand"
+  }
+}

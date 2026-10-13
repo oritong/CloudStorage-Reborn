@@ -1,0 +1,31 @@
+{
+  "display": {
+    "icon": {
+      "id": "citadel:fancy_item",
+      "components": {
+        "minecraft:custom_data": "{DisplayItem:\"cloudstorage_reborn:balloon_buddy\", DisplayZoom:1}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.balloon_buddy.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.balloon_buddy.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/happy_cloud_in_a_bottle",
+  "criteria": {
+    "acacia_blossom": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

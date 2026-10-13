@@ -1,0 +1,29 @@
+{
+  "display": {
+    "icon": {
+      "id": "minecraft:string"
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.string_on_balloon.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.string_on_balloon.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/balloon",
+  "criteria": {
+    "ballooninteract": {
+      "trigger": "minecraft:player_interacted_with_entity",
+      "conditions": {
+        "item": {
+          "items": [
+            "minecraft:string"
+          ]
+        },
+        "entity": {
+          "type": "cloudstorage_reborn:balloon"
+        }
+      }
+    }
+  }
+}

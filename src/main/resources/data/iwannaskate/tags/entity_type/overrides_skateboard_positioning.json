@@ -1,0 +1,9 @@
+{
+  "#comment": "All entities that override the positioning of a skateboard, usually for modded mobs that fly or hover.",
+  "replace": false,
+  "values": [
+    "cloudstorage_reborn:badloon",
+    "cloudstorage_reborn:balloon",
+    "cloudstorage_reborn:balloon_buddy"
+  ]
+}

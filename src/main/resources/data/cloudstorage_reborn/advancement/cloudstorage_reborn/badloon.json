@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:balloon_buddy",
+      "components": {
+        "minecraft:custom_data": "{3DRender:1, Personality:2}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.badloon.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.badloon.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/root",
+  "criteria": {
+    "kill": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "cloudstorage_reborn:badloon"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "kill"
+    ]
+  ]
+}

@@ -1,0 +1,9 @@
+{
+    "parent": "item/generated",
+    "textures": {
+        "layer0": "cloudstorage_reborn:item/balloon_string",
+        "layer1": "cloudstorage_reborn:item/balloon_color",
+        "layer2": "cloudstorage_reborn:item/balloon_sheen",
+        "layer3": "cloudstorage_reborn:item/balloon_static"
+    }
+}

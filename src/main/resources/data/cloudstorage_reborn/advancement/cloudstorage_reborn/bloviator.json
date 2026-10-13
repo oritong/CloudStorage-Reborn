@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:cloud_chest",
+      "components": {
+        "minecraft:custom_data": "{MobRender:1}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.bloviator.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.bloviator.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/root",
+  "criteria": {
+    "kill": {
+      "trigger": "minecraft:player_killed_entity",
+      "conditions": {
+        "entity": {
+          "type": "cloudstorage_reborn:bloviator"
+        }
+      }
+    }
+  },
+  "requirements": [
+    [
+      "kill"
+    ]
+  ]
+}

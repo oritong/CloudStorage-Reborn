@@ -1,0 +1,29 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:cloud_chest"
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.cloud_chest.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.cloud_chest.desc"
+    },
+    "frame": "goal"
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/bloviator",
+  "criteria": {
+    "acacia_blossom": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:cloud_chest"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

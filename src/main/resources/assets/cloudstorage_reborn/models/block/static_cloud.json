@@ -1,0 +1,9 @@
+{
+    "parent": "cloudstorage_reborn:block/static_cloud_base",
+    "render_type": "translucent",
+    "textures": {
+        "cloud": "cloudstorage_reborn:block/static_cloud",
+        "particle": "cloudstorage_reborn:block/static_cloud",
+        "static": "cloudstorage_reborn:block/static_cloud_overlay"
+    }
+}

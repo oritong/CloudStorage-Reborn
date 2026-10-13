@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "cloudstorage_reborn:angry_cloud_in_a_bottle"
+    },
+    {
+      "item": "minecraft:cookie"
+    }
+  ],
+  "result": {
+    "id": "cloudstorage_reborn:happy_cloud_in_a_bottle"
+  }
+}

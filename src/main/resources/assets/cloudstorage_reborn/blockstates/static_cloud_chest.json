@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "cloudstorage_reborn:block/static_cloud"
+    }
+  }
+}

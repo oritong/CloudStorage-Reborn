@@ -1,0 +1,44 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:balloon",
+      "components": {
+        "minecraft:custom_data": "{static:1}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.static_balloon.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.static_balloon.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/balloon",
+  "criteria": {
+    "example": {
+      "trigger": "minecraft:item_used_on_block",
+      "conditions": {
+        "location": [
+          {
+            "condition": "minecraft:location_check",
+            "predicate": {
+              "block": {
+                "blocks": [
+                  "cloudstorage_reborn:cloud"
+                ]
+              }
+            }
+          },
+          {
+            "condition": "minecraft:match_tool",
+            "predicate": {
+              "items": [
+                "cloudstorage_reborn:balloon"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

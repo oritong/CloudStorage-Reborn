@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:balloon_buddy",
+      "components": {
+        "minecraft:custom_data": "{3DRender:1, Personality:10}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.99_balloons.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.99_balloons.desc"
+    },
+    "frame": "challenge"
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/balloon",
+  "criteria": {
+    "ex": {
+      "trigger": "cloudstorage_reborn:luftballons"
+    }
+  }
+}

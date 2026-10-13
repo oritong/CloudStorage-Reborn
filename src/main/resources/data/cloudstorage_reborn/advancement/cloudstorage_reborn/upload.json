@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:balloon",
+      "components": {
+        "minecraft:custom_data": "{3DRender:1}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.upload.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.upload.desc"
+    },
+    "frame": "goal"
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/balloon",
+  "criteria": {
+    "ex": {
+      "trigger": "cloudstorage_reborn:upload"
+    }
+  }
+}

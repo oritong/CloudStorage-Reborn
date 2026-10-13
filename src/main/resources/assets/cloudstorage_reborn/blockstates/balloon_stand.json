@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "cloudstorage_reborn:block/balloon_stand",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "cloudstorage_reborn:block/balloon_stand"
+    },
+    "facing=south": {
+      "model": "cloudstorage_reborn:block/balloon_stand",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cloudstorage_reborn:block/balloon_stand",
+      "y": 270
+    }
+  }
+}

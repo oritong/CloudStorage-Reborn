@@ -1,0 +1,33 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="GNU LESSER GENERAL PUBLIC LICENSE"
+issueTrackerURL="https://github.com/Alex-the-666/CloudStorage/issues"
+[[mods]]
+modId="cloudstorage_reborn"
+version="${version}"
+displayName="Cloud Storage:Reborn"
+displayURL=""
+authors="Oritong(Original author:Alexthe668, Yosh)"
+description='''A simple storage solution without the hassle of tech mods - plus a bunch of other fun, sky-themed stuff.'''
+
+[[mixins]]
+config="cloudstorage_reborn.mixins.json"
+
+[[dependencies.cloudstorage_reborn]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.203,)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.cloudstorage_reborn]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.21.2)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.cloudstorage_reborn]]
+modId="citadel"
+type="required"
+versionRange="[2.7.1,)"
+ordering="AFTER"
+side="BOTH"

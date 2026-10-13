@@ -1,0 +1,8 @@
+{
+  "sound_event": "cloudstorage_reborn:music_disc_drift",
+  "description": {
+    "translate": "item.cloudstorage_reborn.music_disc_drift.desc"
+  },
+  "length_in_seconds": 146,
+  "comparator_output": 14
+}

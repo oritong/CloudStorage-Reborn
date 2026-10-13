@@ -1,0 +1,166 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:balloon_buddy",
+      "components": {
+        "minecraft:custom_data": "{3DRender:1, Personality:-1}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.all_balloon_buddies.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.all_balloon_buddies.desc"
+    },
+    "frame": "challenge"
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/balloon_buddy",
+  "criteria": {
+    "personality3": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:3}"
+            }
+          }
+        ]
+      }
+    },
+    "personality4": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:4}"
+            }
+          }
+        ]
+      }
+    },
+    "personality5": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:5}"
+            }
+          }
+        ]
+      }
+    },
+    "personality6": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:6}"
+            }
+          }
+        ]
+      }
+    },
+    "personality7": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:7}"
+            }
+          }
+        ]
+      }
+    },
+    "personality8": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:8}"
+            }
+          }
+        ]
+      }
+    },
+    "personality9": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:9}"
+            }
+          }
+        ]
+      }
+    },
+    "personality10": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:balloon_buddy"
+            ],
+            "predicates": {
+              "minecraft:custom_data": "{Personality:10}"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "personality3"
+    ],
+    [
+      "personality4"
+    ],
+    [
+      "personality5"
+    ],
+    [
+      "personality6"
+    ],
+    [
+      "personality7"
+    ],
+    [
+      "personality8"
+    ],
+    [
+      "personality9"
+    ],
+    [
+      "personality10"
+    ]
+  ]
+}

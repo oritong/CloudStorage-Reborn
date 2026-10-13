@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "com.github.alexthe668.cloudstorage.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "target": "@env(DEFAULT)",
+  "mixins": [
+    "ArmorDyeRecipeMixin",
+    "CelebrateVillagersSurvivedRaidMixin",
+    "LightningBoltMixin"
+  ],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "minVersion": "0.8"
+}

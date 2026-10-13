@@ -1,0 +1,16 @@
+{
+  "entity_type": "cloudstorage_reborn:balloon_buddy",
+  "body": [
+    "body"
+  ],
+  "head": [
+    "body"
+  ],
+  "right_arm": [],
+  "left_arm": [],
+  "right_leg": [],
+  "left_leg": [],
+  "animation_speed_modifier": 1,
+  "animation_strength_modifier": 0.8,
+  "face_forwards": true
+}

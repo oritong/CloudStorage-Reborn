@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "citadel:effect_item",
+      "components": {
+        "minecraft:custom_data": "{DisplayEffect:\"minecraft:levitation\"}"
+      }
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.root.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.root.desc"
+    },
+    "background": "cloudstorage_reborn:textures/advancement_background.png",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "skyheight": {
+      "trigger": "minecraft:location",
+      "conditions": {
+        "location": {
+          "position": {
+            "y": {
+              "min": 192,
+              "max": 320
+            }
+          }
+        }
+      }
+    }
+  }
+}

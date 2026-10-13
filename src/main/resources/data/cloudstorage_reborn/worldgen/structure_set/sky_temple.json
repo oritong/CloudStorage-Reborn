@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "cloudstorage_reborn:sky_temple",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 111823992,
+    "spacing": 40,
+    "separation": 24
+  }
+}

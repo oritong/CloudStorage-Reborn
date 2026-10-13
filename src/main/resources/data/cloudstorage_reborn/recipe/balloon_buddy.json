@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " B ",
+    "BCB",
+    "SB "
+  ],
+  "key": {
+    "B": {
+      "item": "cloudstorage_reborn:balloon_bit"
+    },
+    "S": {
+      "tag": "c:strings"
+    },
+    "C": {
+      "item": "cloudstorage_reborn:happy_cloud_in_a_bottle"
+    }
+  },
+  "result": {
+    "count": 1,
+    "id": "cloudstorage_reborn:balloon_buddy"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "id": "cloudstorage_reborn:happy_cloud_in_a_bottle"
+    },
+    "title": {
+      "translate": "advancements.cloudstorage_reborn.happy_cloud_in_a_bottle.title"
+    },
+    "description": {
+      "translate": "advancements.cloudstorage_reborn.happy_cloud_in_a_bottle.desc"
+    }
+  },
+  "parent": "cloudstorage_reborn:cloudstorage_reborn/angry_cloud_in_a_bottle",
+  "criteria": {
+    "acacia_blossom": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "cloudstorage_reborn:happy_cloud_in_a_bottle"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

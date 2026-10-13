@@ -1,0 +1,159 @@
+{
+  "balloon_hurt": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:balloon_hurt_0"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_hurt_1"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_hurt_2"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.balloon_hurt"
+  },
+  "balloon_pop": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:balloon_pop_0"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_pop_1"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_pop_2"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_pop_3"
+      },
+      {
+        "name": "cloudstorage_reborn:balloon_pop_4"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.balloon_pop"
+  },
+  "bloviator_idle": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:bloviator_idle_0"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_idle_1"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_idle_2"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.bloviator_idle"
+  },
+  "bloviator_hurt": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:bloviator_hurt_0"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_hurt_1"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.bloviator_hurt"
+  },
+  "bloviator_blow": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:bloviator_blow_0"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_blow_1"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_blow_2"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.bloviator_blow"
+  },
+  "bloviator_lightning": {
+    "category": "hostile",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:bloviator_lightning_0"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_lightning_1"
+      },
+      {
+        "name": "cloudstorage_reborn:bloviator_lightning_2"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.bloviator_lightning"
+  },
+  "cloud_chest_open": {
+    "category": "blocks",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:cloud_chest_open"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.cloud_chest_open"
+  },
+  "cloud_chest_close": {
+    "category": "blocks",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:cloud_chest_close"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.cloud_chest_close"
+  },
+  "static_shock": {
+    "category": "blocks",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:static_shock_0"
+      },
+      {
+        "name": "cloudstorage_reborn:static_shock_1"
+      },
+      {
+        "name": "cloudstorage_reborn:static_shock_2"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.static_shock"
+  },
+  "cloud_blower": {
+    "category": "neutral",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:cloud_blower_0"
+      },
+      {
+        "name": "cloudstorage_reborn:cloud_blower_1"
+      },
+      {
+        "name": "cloudstorage_reborn:cloud_blower_2"
+      },
+      {
+        "name": "cloudstorage_reborn:cloud_blower_3"
+      },
+      {
+        "name": "cloudstorage_reborn:cloud_blower_4"
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.cloud_blower"
+  },
+  "music_disc_drift": {
+    "category": "record",
+    "sounds": [
+      {
+        "name": "cloudstorage_reborn:record_drift",
+        "stream": true
+      }
+    ],
+    "subtitle": "cloudstorage_reborn.sound.subtitle.music_disc_drift"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "parent": "mobs_and_materials.json",
+  "text": "badloon.txt",
+  "title": "Badloon",
+  "entity_buttons": [],
+  "linked_page_buttons": [],
+  "images": [],
+  "item_renders": [
+    {
+      "item": "cloudstorage_reborn:balloon_buddy",
+      "x": 25,
+      "y": 14,
+      "page": 0,
+      "scale": 2.75,
+      "item_components": {
+        "minecraft:custom_data": "{3DRender:2,Personality:1}"
+      }
+    }
+  ],
+  "recipes": [],
+  "tabula_renders": [],
+  "entity_renders": [
+    {
+      "entity": "cloudstorage_reborn:badloon_hand",
+      "x": 90,
+      "y": 110,
+      "page": 0,
+      "scale": 1,
+      "rot_x": 35,
+      "rot_y": 225,
+      "rot_z": 0,
+      "follow_cursor": false
+    }
+  ]
+}

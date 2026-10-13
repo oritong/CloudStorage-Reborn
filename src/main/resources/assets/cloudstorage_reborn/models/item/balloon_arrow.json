@@ -1,0 +1,9 @@
+{
+    "parent": "item/generated",
+    "textures": {
+        "layer0": "minecraft:item/arrow",
+        "layer1": "cloudstorage_reborn:item/balloon_arrow_string",
+        "layer2": "cloudstorage_reborn:item/balloon_arrow_color",
+        "layer3": "cloudstorage_reborn:item/balloon_arrow_sheen"
+    }
+}
