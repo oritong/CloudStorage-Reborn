@@ -3,7 +3,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.111'
 }
 
-version = '1.0.0'
+version = '1.0.1'
 group = 'com.oritong.cloudstorage'
 base.archivesName = 'cloudstorage_reborn'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
@@ -48,6 +48,7 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.addAll(['-Xmaxerrs', '1000'])
 }
 tasks.named('processResources', ProcessResources) {
+    inputs.property 'modVersion', project.version
     filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
 }
 jar {

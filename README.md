@@ -1,6 +1,6 @@
 # Cloud Storage:Reborn
 
-**云存储：涅槃** · Minecraft 1.21.1 · NeoForge · v1.0.0
+**云存储：涅槃** · Minecraft 1.21.1 · NeoForge · v1.0.1
 
 [中文](#中文) | [English](#english)
 
@@ -61,7 +61,7 @@ beyond_dimensions_storage = true
 .\gradlew.bat build
 ```
 
-Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage_reborn-1.0.0-1.21.1-neoforge.jar`。Citadel 不会打进成品 JAR，运行游戏时仍需单独安装。
+Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage_reborn-1.0.1-1.21.1-neoforge.jar`。Citadel 不会打进成品 JAR，运行游戏时仍需单独安装。
 
 开发测试可以运行 `gradlew.bat runGameTestServer` 和 `gradlew.bat -PclientSmokeTest runClient`。后者会检查物品模型和指南书，保存截图后自动退出。
 
@@ -132,7 +132,7 @@ Use JDK 21. The Citadel 2.7.1 dependency is included in `libs/`. The first build
 ./gradlew build
 ```
 
-On Windows, run `.\gradlew.bat build`. The output is `build/libs/cloudstorage_reborn-1.0.0-1.21.1-neoforge.jar`. Citadel is not bundled into that JAR and must be installed separately to play.
+On Windows, run `.\gradlew.bat build`. The output is `build/libs/cloudstorage_reborn-1.0.1-1.21.1-neoforge.jar`. Citadel is not bundled into that JAR and must be installed separately to play.
 
 For development checks, run `./gradlew runGameTestServer` and `./gradlew -PclientSmokeTest runClient`. The client check renders the item models and guide book, saves screenshots, then exits.
 
