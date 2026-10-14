@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "com.oritong.cloudstorage.mixin",
+  "plugin": "com.oritong.cloudstorage.mixin.CloudStorageMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "target": "@env(DEFAULT)",
   "mixins": [
@@ -8,7 +9,7 @@
     "CelebrateVillagersSurvivedRaidMixin",
     "LightningBoltMixin"
   ],
-  "client": [],
+  "client": ["MouseTweaksScreenMixin"],
   "injectors": {
     "defaultRequire": 1
   },

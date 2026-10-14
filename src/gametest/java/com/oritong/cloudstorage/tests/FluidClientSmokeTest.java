@@ -11,6 +11,7 @@ import com.oritong.cloudstorage.network.MessageOpenCloudChest;
 import com.oritong.cloudstorage.world.CSWorldData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
@@ -18,6 +19,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.Slot;
+import com.oritong.cloudstorage.inventory.SlotCloudChest;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
@@ -48,6 +51,9 @@ public final class FluidClientSmokeTest {
     private static int frames;
     private static CloudIndex cloud;
     private static List<CloudTerminalEntry> locked;
+    private static Object mouseTweaksHandler;
+    private static Object mouseTweaksLeft;
+    private static Class<?> mouseTweaksButtonClass;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -120,6 +126,28 @@ public final class FluidClientSmokeTest {
             }
             player.containerMenu.broadcastChanges();
             phase = 16;
+        } else if (phase == 100) {
+            cloud.getContainer().clearContent();
+            player.getInventory().clearContent();
+            ItemStack diamond = new ItemStack(Items.DIAMOND, 6);
+            diamond.set(DataComponents.CUSTOM_NAME, Component.literal("000 Diamond"));
+            ItemStack gold = new ItemStack(Items.GOLD_INGOT, 9);
+            gold.set(DataComponents.CUSTOM_NAME, Component.literal("001 Gold"));
+            ItemStack apple = new ItemStack(Items.APPLE, 4);
+            apple.set(DataComponents.CUSTOM_NAME, Component.literal("002 Apple"));
+            cloud.getContainer().setItem(80, diamond);
+            cloud.getContainer().setItem(60, gold);
+            cloud.getContainer().setItem(0, apple);
+            player.containerMenu.broadcastChanges();
+            phase = 101;
+        } else if (phase == 102 && cloud.getContainer().getItem(80).isEmpty() && cloud.getContainer().getItem(60).isEmpty()
+                && cloud.getContainer().getItem(0).isEmpty() && player.getInventory().countItem(Items.DIAMOND) == 6
+                && player.getInventory().countItem(Items.GOLD_INGOT) == 9 && player.getInventory().countItem(Items.APPLE) == 4) {
+            phase = 103;
+        } else if (phase == 104 && player.getInventory().countItem(Items.DIAMOND) == 0
+                && player.getInventory().countItem(Items.GOLD_INGOT) == 0 && player.getInventory().countItem(Items.APPLE) == 0
+                && cloud.getContainer().getItem(0).getCount() + cloud.getContainer().getItem(1).getCount() + cloud.getContainer().getItem(2).getCount() == 19) {
+            phase = 105;
         }
     }
 
@@ -236,7 +264,63 @@ public final class FluidClientSmokeTest {
         } else if (phase == 17 && ++frames > 20) {
             capture(client, "cloud-mixed-scroll.png");
             CloudStorage.LOGGER.info("FLUID_CLIENT_SMOKE_TEST_PASSED: mixed items/fluids, actual transfers, immediate Shift additions and restocking, unified search and scrolling");
+            if (Boolean.getBoolean("cloudstorage_reborn.mouseTweaksSmokeTest")) {
+                frames = 0;
+                while (screen.getScrollRow() > 0) screen.mouseScrolled(left + 50, top + 30, 0, 1);
+                phase = 100;
+                return;
+            }
             phase = 18;
+            client.stop();
+        } else if (phase == 101 && menu.getCarried().isEmpty()
+                && menu.getTerminalEntries().stream().anyMatch(entry -> entry.item().is(Items.DIAMOND)) && ++frames > 20) {
+            screen.keyPressed(340, 0, 1);
+            int first = find(screen, entry -> entry.item().is(Items.DIAMOND));
+            mouseTweaksButtonClass = Class.forName("yalter.mousetweaks.MouseButton");
+            mouseTweaksLeft = mouseTweaksButtonClass.getField("LEFT").get(null);
+            Class<?> main = Class.forName("yalter.mousetweaks.Main");
+            main.getMethod("onMouseClicked", Screen.class, double.class, double.class, mouseTweaksButtonClass)
+                    .invoke(null, screen, (double) left + 16 + first % 9 * 18, (double) top + 26 + first / 9 * 18, mouseTweaksLeft);
+            var handlerField = main.getDeclaredField("handler");
+            handlerField.setAccessible(true);
+            mouseTweaksHandler = handlerField.get(null);
+            if (mouseTweaksHandler == null || !mouseTweaksHandler.getClass().getSimpleName().equals("IMTModGuiContainer3ExHandler"))
+                throw new AssertionError("Mouse Tweaks did not select the optional custom screen interface");
+            // The initial press goes through the screen; Mouse Tweaks handles subsequent crossed slots.
+            screen.mouseClicked(left + 16 + first % 9 * 18, top + 26 + first / 9 * 18, 0);
+            // Use Mouse Tweaks' actual custom handler, including coordinate lookup, for a burst without waiting for snapshots.
+            for (var item : List.of(Items.DIAMOND, Items.GOLD_INGOT, Items.APPLE)) {
+                int index = find(screen, entry -> entry.item().is(item));
+                Slot slot = mouseTweaksSlot(left + 16 + index % 9 * 18, top + 26 + index / 9 * 18);
+                if (slot == null || !slot.getItem().is(item)) throw new AssertionError("Mouse Tweaks mapped " + item
+                        + " at displayed index " + index + ", scroll row " + screen.getScrollRow() + " to "
+                        + (slot == null ? "null" : slot.getClass().getName() + ": " + slot.getItem())
+                        + "; displayed entry: " + screen.getDisplayedEntries().get(index));
+                mouseTweaksTransfer(slot);
+                if (item == Items.DIAMOND) mouseTweaksTransfer(slot);
+            }
+            int fluid = find(screen, CloudTerminalEntry::isFluid);
+            Slot fluidSlot = mouseTweaksSlot(left + 16 + fluid % 9 * 18, top + 26 + fluid / 9 * 18);
+            if (!(boolean) mouseTweaksHandler.getClass().getMethod("isIgnored", Slot.class).invoke(mouseTweaksHandler, fluidSlot))
+                throw new AssertionError("Mouse Tweaks treated a fluid as a movable item");
+            mouseTweaksTransfer(fluidSlot);
+            frames = 0;
+            phase = 102;
+        } else if (phase == 103 && menu.getTerminalEntries().stream().noneMatch(entry -> !entry.isFluid()) && ++frames > 20) {
+            if (!menu.getCarried().isEmpty()) throw new AssertionError("Mouse Tweaks quick move changed the cursor stack");
+            for (var item : List.of(Items.DIAMOND, Items.GOLD_INGOT, Items.APPLE)) {
+                Slot inventorySlot = menu.slots.stream().filter(slot -> !(slot instanceof SlotCloudChest) && slot.getItem().is(item)).findFirst().orElseThrow();
+                Slot found = mouseTweaksSlot(left + inventorySlot.x + 8, top + inventorySlot.y + 8);
+                if (found != inventorySlot) throw new AssertionError("Mouse Tweaks could not resolve the player inventory");
+                mouseTweaksTransfer(found);
+            }
+            frames = 0;
+            phase = 104;
+        } else if (phase == 105 && menu.getTerminalEntries().stream().filter(entry -> !entry.isFluid()).count() == 3 && ++frames > 20) {
+            if (menu.getTerminalEntries().stream().filter(entry -> !entry.isFluid()).mapToLong(CloudTerminalEntry::amount).sum() != 19)
+                throw new AssertionError("Mouse Tweaks return transfers lost or duplicated items");
+            capture(client, "cloud-mousetweaks-quick-move.png");
+            CloudStorage.LOGGER.info("MOUSE_TWEAKS_CLIENT_SMOKE_TEST_PASSED: actual custom handler, virtual coordinates, rapid cloud withdrawals, inventory deposits, duplicate protection and ignored fluids");
             client.stop();
         }
     }
@@ -249,6 +333,13 @@ public final class FluidClientSmokeTest {
                     : a.source() != b.source() || !ItemStack.isSameItemSameComponents(a.item(), b.item())))
                 throw new AssertionError("Shift reordered mixed entries");
         }
+    }
+    private static Slot mouseTweaksSlot(double x, double y) throws ReflectiveOperationException {
+        return (Slot) mouseTweaksHandler.getClass().getMethod("getSlotUnderMouse", double.class, double.class).invoke(mouseTweaksHandler, x, y);
+    }
+    private static void mouseTweaksTransfer(Slot slot) throws ReflectiveOperationException {
+        mouseTweaksHandler.getClass().getMethod("clickSlot", Slot.class, mouseTweaksButtonClass, boolean.class)
+                .invoke(mouseTweaksHandler, slot, mouseTweaksLeft, true);
     }
     private static FluidStack shiftFluid(int amount) {
         var fluid = new FluidStack(Fluids.LAVA, amount);

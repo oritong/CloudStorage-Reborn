@@ -6,6 +6,7 @@ import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
 import com.oritong.cloudstorage.inventory.SlotCloudChest;
 import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudSearchContents;
+import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,6 +20,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
@@ -44,6 +47,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     private String displayedQuery = "";
     private boolean displayedSort;
     private boolean displayedLocked;
+    private final List<Slot> mouseTweaksSlots = new ArrayList<>();
     public int mode;
 
     public CloudChestScreen(CloudChestMenu menu, Inventory inventory, Component title) {
@@ -51,6 +55,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         imageWidth = 195;
         imageHeight = 222;
         inventoryLabelY = imageHeight - 94;
+        var virtual = new SimpleContainer(54);
+        for (int i = 0; i < 54; i++) mouseTweaksSlots.add(new MouseTweaksTerminalSlot(virtual, i));
     }
 
     @Override protected void init() {
@@ -132,6 +138,61 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
 
     public List<CloudTerminalEntry> getDisplayedEntries() { return displayed; }
     public int getScrollRow() { return scrollRow; }
+
+    public List<Slot> getMouseTweaksSlots() {
+        List<Slot> slots = new ArrayList<>(mouseTweaksSlots);
+        for (Slot slot : menu.slots) if (!(slot instanceof SlotCloudChest)) slots.add(slot);
+        return slots;
+    }
+
+    public Slot getMouseTweaksSlot(double x, double y) {
+        updateDisplay();
+        int index = gridIndex(x, y);
+        if (index >= 0) return mouseTweaksSlots.get(index - scrollRow * 9);
+        for (Slot slot : menu.slots) {
+            if (!(slot instanceof SlotCloudChest) && slot.isActive() && isHovering(slot.x, slot.y, 16, 16, x, y)) return slot;
+        }
+        return null;
+    }
+
+    public boolean isMouseTweaksSlotIgnored(Slot slot) {
+        return slot instanceof MouseTweaksTerminalSlot && !slot.hasItem();
+    }
+
+    public boolean disableMouseTweaksQuickCraft() {
+        boolean wasQuickCrafting = isQuickCrafting;
+        consumeRelease = true;
+        isQuickCrafting = false;
+        quickCraftSlots.clear();
+        return wasQuickCrafting;
+    }
+
+    public void clickMouseTweaksSlot(Slot slot, int button, ClickType type) {
+        if (slot instanceof MouseTweaksTerminalSlot virtual) {
+            var entry = virtual.entry();
+            if (button == 0 && type == ClickType.QUICK_MOVE && menu.getCarried().isEmpty()
+                    && entry != null && !entry.isFluid() && entry.amount() > 0)
+                CloudStorage.sendMSGToServer(new MessageCloudQuickMove(menu.containerId, entry.source(), entry.item().copy()));
+        } else if (menu.slots.contains(slot)) slotClicked(slot, slot.index, button, type);
+    }
+
+    private final class MouseTweaksTerminalSlot extends Slot {
+        private final int visibleIndex;
+        private MouseTweaksTerminalSlot(SimpleContainer virtual, int index) {
+            super(virtual, index, 8 + index % 9 * 18, 18 + index / 9 * 18);
+            visibleIndex = index;
+        }
+        private CloudTerminalEntry entry() {
+            int index = scrollRow * 9 + visibleIndex;
+            return index < displayed.size() ? displayed.get(index) : null;
+        }
+        @Override public ItemStack getItem() {
+            var entry = entry();
+            return entry == null || entry.isFluid() || entry.amount() == 0 ? ItemStack.EMPTY : entry.item();
+        }
+        @Override public boolean mayPlace(ItemStack stack) { return false; }
+    }
+
     private int maxScrollRow() { return Math.max(0, (displayed.size() + 8) / 9 - 6); }
     private int gridIndex(double x, double y) {
         int column = (int) Math.floor((x - leftPos - 8) / 18);

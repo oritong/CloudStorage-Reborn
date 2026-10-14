@@ -8,6 +8,11 @@ group = 'com.oritong.cloudstorage'
 base.archivesName = 'cloudstorage_reborn'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 sourceSets.main.java.srcDir 'src/gametest/java'
+// Compile the optional interface separately; Mouse Tweaks supplies it at runtime.
+sourceSets {
+    mouseTweaksApi { compileClasspath = sourceSets.main.compileClasspath }
+    main { compileClasspath += sourceSets.mouseTweaksApi.output }
+}
 
 neoForge {
     version = '21.1.203'
@@ -22,6 +27,10 @@ neoForge {
             }
             if (project.hasProperty('fluidSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
+            }
+            if (project.hasProperty('mouseTweaksSmokeTest')) {
+                systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
+                systemProperty 'cloudstorage_reborn.mouseTweaksSmokeTest', 'true'
             }
         }
         server {
@@ -43,6 +52,9 @@ dependencies {
     // Optional local runtime JAR for integration checks; never bundled or required to build.
     if (project.hasProperty('beyondDimensionsTestJar')) {
         runtimeOnly files(project.property('beyondDimensionsTestJar'))
+    }
+    if (project.hasProperty('mouseTweaksTestJar')) {
+        runtimeOnly files(project.property('mouseTweaksTestJar'))
     }
 }
 

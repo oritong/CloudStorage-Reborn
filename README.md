@@ -45,6 +45,10 @@
 
 如果客户端装了 Just Enough Characters（JEC），云箱里也可以用全拼或拼音首字母搜索。比如中文语言下，输入 `zuanshi` 或 `zs` 都能找到钻石。匹配遵循 JEC 的拼音设置；`@模组ID` 和 `#标签` 搜索照常使用。JEC 是可选联动，只需客户端安装，服务器不需要它。
 
+### Mouse Tweaks
+
+客户端安装 Mouse Tweaks 后，按住 Shift 和鼠标左键拖过物品格，即可在云库存与背包之间快速转移物品。终端接入 Mouse Tweaks 的自定义界面接口，由它处理拖动手势，并遵循它的左键拖动设置；不需要在服务器安装 Mouse Tweaks。流体格不参与物品拖动，滚轮仍用于滚动终端列表。未安装 Mouse Tweaks 时，普通点击和 Shift 点击照常使用。
+
 ### 超越维度联动（WIP）
 
 如果也安装了 Beyond Dimensions（超越维度），可以让私人云库存使用自己的维度网络。它是可选联动，默认关闭。在 `config/cloudstorage_reborn-common.toml` 中开启：
@@ -84,13 +88,15 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 终端 GUI 的开发检查使用 `gradlew.bat -PfluidSmokeTest runClient`，会通过实际点击验证物品和流体存取、叠放空桶、混合搜索、滚动和 Shift 排列锁定，保存截图后退出。
 
-目前通过了编译、12 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -PmouseTweaksSmokeTest runClient`，会通过它的实际自定义界面处理器验证坐标识别、双向快速转移和连续请求。编译使用仓库内的独立 API 接口源码，运行时由 Mouse Tweaks 提供接口，成品不包含 Mouse Tweaks 或它的接口类。
+
+目前通过了编译、13 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
 维护与迁移：**Oritong**。原作者：**Alexthe668、Yosh**。
 
-本项目采用 **GNU Lesser General Public License v3.0（LGPL-3.0-only）**。协议全文见 [LICENSE](LICENSE)。Citadel 是独立依赖，遵循它自己的许可协议。
+本项目采用 **GNU Lesser General Public License v3.0（LGPL-3.0-only）**。协议全文见 [LICENSE](LICENSE)。Citadel 是独立依赖，遵循它自己的许可协议。仅用于编译的 Mouse Tweaks API 接口源码采用 BSD-3-Clause，协议见 [src/mouseTweaksApi/LICENSE](src/mouseTweaksApi/LICENSE)。
 
 ## English
 
@@ -133,6 +139,10 @@ The mod ID is `cloudstorage_reborn`. Settings are in `config/cloudstorage_reborn
 
 With Just Enough Characters (JEC) installed on the client, Cloud Chest searches also accept pinyin and initials. For example, with Chinese item names, `zuanshi` or `zs` will find diamonds. Matching follows your JEC settings, and `@modid` and `#tag` searches still work as usual. JEC is optional and only needed on the client; the server does not need it.
 
+### Mouse Tweaks
+
+With Mouse Tweaks installed on the client, hold Shift and the left mouse button while dragging across item entries to transfer them between the cloud and your inventory. The terminal uses Mouse Tweaks' custom screen interface, so Mouse Tweaks handles gestures and its left-drag settings apply. It is not needed on the server. Fluid entries are excluded from item dragging, and the wheel still scrolls the terminal list. Ordinary clicks and Shift-clicks work without Mouse Tweaks.
+
 ### Beyond Dimensions Integration (WIP)
 
 If you also use Beyond Dimensions, your private clouds can feed into your own dimensional network. This is optional and disabled by default. Enable it in `config/cloudstorage_reborn-common.toml`:
@@ -172,10 +182,12 @@ To check the integration, supply `-PbeyondDimensionsTestJar=/path/to/local.jar` 
 
 Run `./gradlew -PfluidSmokeTest runClient` for the terminal GUI check. It performs real clicks to check item and fluid transfers, stacked buckets, mixed searches, scrolling and Shift-locked ordering, saves screenshots, then exits.
 
-The port passes compilation, twelve server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -PmouseTweaksSmokeTest runClient`. It checks coordinate mapping, rapid requests and transfers in both directions through the actual custom screen handler. The compile-only API source is included in the repository; the runtime interface comes from Mouse Tweaks. Neither Mouse Tweaks nor its interface class is bundled into the mod JAR.
+
+The port passes compilation, thirteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 
 Port and maintenance: **Oritong**. Original authors: **Alexthe668, Yosh**.
 
-This project is licensed under the **GNU Lesser General Public License v3.0 (LGPL-3.0-only)**. See [LICENSE](LICENSE) for the full license text. Citadel is a separate dependency covered by its own license.
+This project is licensed under the **GNU Lesser General Public License v3.0 (LGPL-3.0-only)**. See [LICENSE](LICENSE) for the full license text. Citadel is a separate dependency covered by its own license. The compile-only Mouse Tweaks API interface source is covered by BSD-3-Clause; see [src/mouseTweaksApi/LICENSE](src/mouseTweaksApi/LICENSE).

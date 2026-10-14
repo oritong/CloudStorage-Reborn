@@ -9,6 +9,7 @@ import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
+import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
 import com.oritong.cloudstorage.world.CSWorldData;
 import io.netty.buffer.Unpooled;
@@ -218,6 +219,57 @@ public final class FluidStorageTests {
                 && clientMenu.getFluidCapacity() == 9_000_000_000L
                 && ItemStack.matches(clientMenu.getTerminalEntries().getFirst().item(), entries.getFirst().item())
                 && FluidStack.isSameFluidSameComponents(clientMenu.getTerminalEntries().get(21).fluid(), entries.get(21).fluid()), "Batched mixed snapshot lost long counts or components");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void rapidQuickMoveValidation(GameTestHelper helper) {
+        var player = player(helper);
+        var cloud = new CloudIndex(player.getUUID(), 0x193845, 90);
+        var menu = new CloudChestMenu(17, player.getInventory(), cloud, CSWorldData.get(helper.getLevel()));
+        player.containerMenu = menu;
+        cloud.getContainer().setItem(80, new ItemStack(Items.DIAMOND, 6));
+        cloud.getContainer().setItem(60, new ItemStack(Items.GOLD_INGOT, 9));
+        menu.broadcastChanges();
+        var diamond = new MessageCloudQuickMove(17, 80, new ItemStack(Items.DIAMOND, 6));
+        var gold = new MessageCloudQuickMove(17, 60, new ItemStack(Items.GOLD_INGOT, 9));
+        menu.handleQuickMove(player, new MessageCloudQuickMove(18, 80, diamond.expected()));
+        menu.handleQuickMove(player, new MessageCloudQuickMove(17, -1, diamond.expected()));
+        menu.handleQuickMove(player, new MessageCloudQuickMove(17, 90, diamond.expected()));
+        var renamed = diamond.expected().copy();
+        renamed.set(DataComponents.CUSTOM_NAME, Component.literal("Different components"));
+        menu.handleQuickMove(player, new MessageCloudQuickMove(17, 80, renamed));
+        menu.setCarried(new ItemStack(Items.BUCKET));
+        menu.handleQuickMove(player, diamond);
+        menu.setCarried(ItemStack.EMPTY);
+        helper.assertTrue(cloud.getContainer().getItem(80).getCount() == 6 && cloud.getContainer().getItem(60).getCount() == 9,
+                "Invalid drag request changed storage");
+        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+        try {
+            MessageCloudQuickMove.CODEC.encode(buf, diamond);
+            menu.handleQuickMove(player, MessageCloudQuickMove.CODEC.decode(buf));
+        } finally { buf.release(); }
+        // Both requests were created from the same snapshot. The first must not invalidate the second.
+        menu.handleQuickMove(player, gold);
+        menu.handleQuickMove(player, diamond);
+        helper.assertTrue(cloud.getContainer().getItem(80).isEmpty() && cloud.getContainer().getItem(60).isEmpty()
+                && player.getInventory().countItem(Items.DIAMOND) == 6 && player.getInventory().countItem(Items.GOLD_INGOT) == 9,
+                "Rapid transfers were dropped, redirected, or duplicated");
+        cloud.getContainer().setItem(80, new ItemStack(Items.APPLE, 4));
+        menu.handleQuickMove(player, diamond);
+        var apple = new MessageCloudQuickMove(17, 80, new ItemStack(Items.APPLE, 4));
+        menu.handleQuickMove(player(helper), apple);
+        player.containerMenu = player.inventoryMenu;
+        menu.handleQuickMove(player, apple);
+        helper.assertTrue(cloud.getContainer().getItem(80).getCount() == 4, "Stale contents, another player, or a closed menu allowed a transfer");
+        player.containerMenu = menu;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) player.getInventory().setItem(i, new ItemStack(Items.COBBLESTONE, 64));
+        player.getInventory().setItem(8, new ItemStack(Items.APPLE, 63));
+        menu.handleQuickMove(player, apple);
+        helper.assertTrue(cloud.getContainer().getItem(80).getCount() == 3 && player.getInventory().getItem(8).getCount() == 64,
+                "A partial quick move lost its remainder");
+        menu.handleQuickMove(player, apple);
+        helper.assertTrue(cloud.getContainer().getItem(80).getCount() == 3, "A repeated old drag request changed the remaining stack");
         helper.succeed();
     }
 

@@ -4,6 +4,7 @@ import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.network.MessageScrollCloudChest;
 import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
+import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.world.CSWorldData;
 import com.google.common.collect.Lists;
@@ -185,6 +186,20 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     private int cloudSlotCount() { return Math.min(container.getContainerSize(), 54); }
+
+    public void handleQuickMove(Player player, MessageCloudQuickMove message) {
+        if (player != owner || player.containerMenu != this || !stillValid(player)
+                || player.level().isClientSide() || message.containerId() != containerId || !getCarried().isEmpty()
+                || message.source() < 0 || message.source() >= container.getContainerSize() || message.expected().isEmpty()) return;
+        ItemStack source = container.getItem(message.source());
+        if (!ItemStack.matches(source, message.expected())) return;
+        if (moveItemStackTo(source, cloudSlotCount(), slots.size(), true)) {
+            if (source.isEmpty()) container.setItem(message.source(), ItemStack.EMPTY);
+            container.setChanged();
+            fluidChanged.run();
+        }
+        broadcastChanges();
+    }
 
     private void interactItem(CloudTerminalEntry entry, int button) {
         ItemStack carried = getCarried();
