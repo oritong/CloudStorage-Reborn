@@ -96,11 +96,20 @@ public final class FluidClientSmokeTest {
             player.containerMenu.broadcastChanges();
             phase = 8;
         } else if (phase == 9 && cloud.getContainer().getItem(80).isEmpty() && player.getInventory().countItem(Items.DIAMOND) == 6) {
-            // New entries must wait until Shift is released, while existing counts still update.
-            cloud.getContainer().setItem(0, new ItemStack(Items.APPLE, 4));
+            // Deposit an item through the GUI while Shift remains held, alongside a newly uploaded fluid.
+            player.containerMenu.setCarried(new ItemStack(Items.APPLE, 4));
             cloud.getFluids().fill(new FluidStack(Fluids.WATER, 1000), EXECUTE);
+            cloud.getFluids().fill(shiftFluid(500), EXECUTE);
             player.containerMenu.broadcastChanges();
-            phase = 10;
+            phase = 90;
+        } else if (phase == 91 && cloud.getContainer().getItem(0).isEmpty() && player.getInventory().countItem(Items.APPLE) == 4) {
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                if (player.getInventory().getItem(i).is(Items.APPLE)) player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+            player.containerMenu.setCarried(new ItemStack(Items.APPLE, 4));
+            cloud.getFluids().fill(shiftFluid(500), EXECUTE);
+            player.containerMenu.broadcastChanges();
+            phase = 92;
         } else if (phase == 13 && player.containerMenu.getCarried().is(Items.APPLE) && cloud.getContainer().getItem(0).isEmpty()) {
             phase = 14;
         } else if (phase == 15 && player.containerMenu.getCarried().isEmpty() && cloud.getContainer().getItem(0).is(Items.APPLE)) {
@@ -159,19 +168,39 @@ public final class FluidClientSmokeTest {
             locked = List.copyOf(screen.getDisplayedEntries());
             phase = 9;
             click(screen, find(screen, entry -> entry.item().is(Items.DIAMOND)), 0);
+        } else if (phase == 90 && menu.getCarried().is(Items.APPLE) && water(menu) == 7000
+                && menu.getTerminalEntries().stream().anyMatch(entry -> entry.isFluid() && FluidStack.isSameFluidSameComponents(entry.fluid(), shiftFluid(500)))) {
+            phase = 10;
+            click(screen, screen.getDisplayedEntries().size(), 0);
         } else if (phase == 10 && water(menu) == 7000 && menu.getTerminalEntries().stream().anyMatch(entry -> entry.item().is(Items.APPLE)) && ++frames > 20) {
             var view = screen.getDisplayedEntries();
-            if (view.size() != locked.size()) throw new AssertionError("Shift changed the number of displayed positions");
-            for (int i = 0; i < view.size(); i++) {
-                var a = locked.get(i); var b = view.get(i);
-                if (a.isFluid() != b.isFluid() || (a.isFluid() ? !FluidStack.isSameFluidSameComponents(a.fluid(), b.fluid())
-                        : !ItemStack.isSameItemSameComponents(a.item(), b.item()))) throw new AssertionError("Shift reordered mixed entries");
-            }
+            if (view.size() != locked.size() + 2) throw new AssertionError("Shift hid or duplicated a newly deposited item or fluid");
+            assertLockedPrefix(view);
             if (view.stream().noneMatch(entry -> entry.item().is(Items.DIAMOND) && entry.amount() == 0)
-                    || view.stream().anyMatch(entry -> entry.item().is(Items.APPLE))
+                    || view.subList(locked.size(), view.size()).stream().noneMatch(entry -> entry.item().is(Items.APPLE) && entry.amount() == 4)
+                    || view.subList(locked.size(), view.size()).stream().noneMatch(entry -> entry.isFluid()
+                        && FluidStack.isSameFluidSameComponents(entry.fluid(), shiftFluid(500)) && entry.amount() == 500)
                     || view.stream().noneMatch(entry -> entry.isFluid() && entry.fluid().getFluid() == Fluids.WATER && entry.amount() == 7000))
-                throw new AssertionError("Shift did not retain depleted positions, defer new entries, or update counts");
+                throw new AssertionError("Shift did not retain depleted positions, append new entries, or update counts");
             capture(client, "cloud-mixed-shift-locked.png");
+            locked = List.copyOf(view);
+            frames = 0;
+            phase = 91;
+            click(screen, find(screen, entry -> entry.item().is(Items.APPLE)), 0);
+        } else if (phase == 92 && menu.getCarried().is(Items.APPLE)
+                && menu.getTerminalEntries().stream().anyMatch(entry -> entry.isFluid()
+                    && FluidStack.isSameFluidSameComponents(entry.fluid(), shiftFluid(1000)) && entry.amount() == 1000)) {
+            var view = screen.getDisplayedEntries();
+            assertLockedPrefix(view);
+            if (view.size() != locked.size() || view.stream().noneMatch(entry -> entry.item().is(Items.APPLE) && entry.amount() == 0))
+                throw new AssertionError("New Shift entry was not accessible or lost its position after withdrawal");
+            phase = 93;
+            click(screen, screen.getDisplayedEntries().size(), 0);
+        } else if (phase == 93 && menu.getCarried().isEmpty() && menu.getTerminalEntries().stream().anyMatch(entry -> entry.item().is(Items.APPLE)) && ++frames > 20) {
+            var view = screen.getDisplayedEntries();
+            assertLockedPrefix(view);
+            if (view.size() != locked.size() || view.stream().noneMatch(entry -> entry.item().is(Items.APPLE) && entry.amount() == 4))
+                throw new AssertionError("Restocking a new Shift entry duplicated it or changed its position");
             frames = 0;
             screen.keyReleased(340, 0, 0);
             phase = 11;
@@ -184,7 +213,7 @@ public final class FluidClientSmokeTest {
             phase = 12;
             frames = 0;
         } else if (phase == 12 && ++frames > 10) {
-            if (screen.getDisplayedEntries().size() != 4 || screen.getDisplayedEntries().stream().noneMatch(CloudTerminalEntry::isFluid)
+            if (screen.getDisplayedEntries().size() != 5 || screen.getDisplayedEntries().stream().noneMatch(CloudTerminalEntry::isFluid)
                     || screen.getDisplayedEntries().stream().allMatch(CloudTerminalEntry::isFluid)) throw new AssertionError("Mixed mod-ID search excluded a resource type");
             search(screen, "#minecraft:water");
             screen.render(new net.minecraft.client.gui.GuiGraphics(client, client.renderBuffers().bufferSource()), 0, 0, 0);
@@ -196,7 +225,7 @@ public final class FluidClientSmokeTest {
         } else if (phase == 14 && menu.getCarried().is(Items.APPLE)) {
             phase = 15;
             click(screen, screen.getDisplayedEntries().size(), 0);
-        } else if (phase == 16 && menu.getTerminalEntries().size() == 64 && ++frames > 20) {
+        } else if (phase == 16 && menu.getTerminalEntries().size() == 65 && ++frames > 20) {
             screen.mouseScrolled(left + 50, top + 30, 0, -1);
             if (screen.getScrollRow() != 1) throw new AssertionError("Mixed terminal mouse wheel failed");
             screen.mouseClicked(left + 180, top + 120, 0);
@@ -206,12 +235,26 @@ public final class FluidClientSmokeTest {
             frames = 0;
         } else if (phase == 17 && ++frames > 20) {
             capture(client, "cloud-mixed-scroll.png");
-            CloudStorage.LOGGER.info("FLUID_CLIENT_SMOKE_TEST_PASSED: mixed items/fluids, actual transfers, Shift lock/release, unified search and scrolling");
+            CloudStorage.LOGGER.info("FLUID_CLIENT_SMOKE_TEST_PASSED: mixed items/fluids, actual transfers, immediate Shift additions and restocking, unified search and scrolling");
             phase = 18;
             client.stop();
         }
     }
 
+    private static void assertLockedPrefix(List<CloudTerminalEntry> view) {
+        if (view.size() < locked.size()) throw new AssertionError("Shift removed a locked position");
+        for (int i = 0; i < locked.size(); i++) {
+            var a = locked.get(i); var b = view.get(i);
+            if (a.isFluid() != b.isFluid() || (a.isFluid() ? !FluidStack.isSameFluidSameComponents(a.fluid(), b.fluid())
+                    : a.source() != b.source() || !ItemStack.isSameItemSameComponents(a.item(), b.item())))
+                throw new AssertionError("Shift reordered mixed entries");
+        }
+    }
+    private static FluidStack shiftFluid(int amount) {
+        var fluid = new FluidStack(Fluids.LAVA, amount);
+        fluid.set(DataComponents.CUSTOM_NAME, Component.literal("Shift-added lava"));
+        return fluid;
+    }
     private static long water(CloudChestMenu menu) {
         return menu.getTerminalEntries().stream().filter(entry -> entry.isFluid() && entry.fluid().getFluid() == Fluids.WATER).findFirst().orElseThrow().amount();
     }

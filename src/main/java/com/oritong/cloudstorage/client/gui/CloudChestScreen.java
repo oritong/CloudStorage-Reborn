@@ -96,6 +96,11 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                 var entry = current.stream().filter(candidate -> sameEntry(key, candidate)).findFirst().orElse(null);
                 refreshed.add(entry == null ? new CloudTerminalEntry(key.source(), key.item(), key.fluid(), 0) : entry);
             }
+            // Lock existing positions, but keep newly stored resources accessible immediately.
+            for (var entry : current) {
+                if (matches(entry, query) && lockedOrder.stream().noneMatch(key -> sameEntry(key, entry))) refreshed.add(entry);
+            }
+            lockedOrder = List.copyOf(refreshed);
             displayed = List.copyOf(refreshed);
         } else {
             lockedOrder = null;
