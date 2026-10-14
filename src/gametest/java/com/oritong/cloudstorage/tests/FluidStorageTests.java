@@ -7,8 +7,9 @@ import com.oritong.cloudstorage.inventory.CloudChestMenu;
 import com.oritong.cloudstorage.inventory.CloudFluidContainerInteraction;
 import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import com.oritong.cloudstorage.misc.CloudIndex;
-import com.oritong.cloudstorage.network.MessageCloudFluidAction;
-import com.oritong.cloudstorage.network.MessageCloudFluids;
+import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
+import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
+import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
 import com.oritong.cloudstorage.world.CSWorldData;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.component.DataComponents;
@@ -149,26 +150,48 @@ public final class FluidStorageTests {
         var cloud = new CloudIndex(player.getUUID(), 0x451279, 27);
         var menu = new CloudChestMenu(14, player.getInventory(), cloud, CSWorldData.get(helper.getLevel()));
         player.containerMenu = menu;
+        cloud.getContainer().setItem(10, new ItemStack(Items.DIAMOND, 6));
+        menu.broadcastChanges();
         menu.setCarried(new ItemStack(Items.WATER_BUCKET));
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.DEPOSIT, 0, 0));
-        helper.assertTrue(cloud.getFluids().storedAmount() == 0, "Item view accepted fluid action");
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.FLUIDS, 0, 0));
-        menu.handleFluidAction(player, new MessageCloudFluidAction(15, MessageCloudFluidAction.DEPOSIT, 0, 0));
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.DEPOSIT, 90, 0));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(15, menu.getTerminalRevision(), -1, 1, false));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, 90, -1, 1, false));
         helper.assertTrue(cloud.getFluids().storedAmount() == 0, "Wrong menu or stale fluid snapshot was accepted");
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.DEPOSIT, 0, 0));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), -1, 1, false));
         helper.assertTrue(cloud.getFluids().storedAmount() == 1000 && menu.getCarried().is(Items.BUCKET), "Valid menu deposit failed");
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.WITHDRAW, 1, -1));
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.WITHDRAW, 1, 256));
+        helper.assertTrue(menu.getTerminalEntries().size() == 2 && !menu.getTerminalEntries().getFirst().isFluid()
+                && menu.getTerminalEntries().getLast().isFluid(), "Items and fluids were not available in one snapshot");
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), -2, 0, false));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 256, 0, false));
         helper.assertTrue(cloud.getFluids().storedAmount() == 1000, "Out-of-range fluid index changed storage");
-        cloud.getContainer().setItem(0, new ItemStack(Items.DIAMOND, 6));
         menu.clicked(0, 0, ClickType.PICKUP, player);
-        helper.assertTrue(cloud.getContainer().getItem(0).getCount() == 6 && !menu.slots.getFirst().mayPlace(new ItemStack(Items.APPLE))
-                && !menu.slots.getFirst().mayPickup(player), "Hidden item slots were usable in fluid view");
+        helper.assertTrue(cloud.getContainer().getItem(10).getCount() == 6 && !menu.slots.getFirst().mayPlace(new ItemStack(Items.APPLE))
+                && !menu.slots.getFirst().mayPickup(player), "Hidden backing slots bypassed mixed terminal validation");
+        menu.setCarried(ItemStack.EMPTY);
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 0, 1, false));
+        helper.assertTrue(menu.getCarried().is(Items.DIAMOND) && menu.getCarried().getCount() == 3
+                && cloud.getContainer().getItem(10).getCount() == 3, "Mixed terminal half-stack pickup failed");
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 0, 0, false));
+        helper.assertTrue(menu.getCarried().isEmpty() && cloud.getContainer().getItem(10).getCount() == 6, "Mixed terminal item insertion failed");
+        long stale = menu.getTerminalRevision();
+        cloud.getContainer().setItem(1, new ItemStack(Items.APPLE, 4));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, stale, 0, 0, true));
+        helper.assertTrue(cloud.getContainer().getItem(1).getCount() == 4 && cloud.getContainer().getItem(10).getCount() == 6, "Changed source ordering redirected a stale click");
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 1, 0, true));
+        helper.assertTrue(cloud.getContainer().getItem(10).isEmpty() && player.getInventory().countItem(Items.DIAMOND) == 6, "Mixed terminal Shift transfer failed");
+        menu.setCarried(new ItemStack(Items.WATER_BUCKET));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), -1, 0, false));
+        helper.assertTrue(menu.getCarried().isEmpty() && cloud.getContainer().getItem(0).is(Items.WATER_BUCKET)
+                && cloud.getFluids().storedAmount() == 1000, "Left-click stored the fluid instead of the container item");
+        menu.setCarried(new ItemStack(Items.ENDER_PEARL, 40));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), -1, 0, true));
+        helper.assertTrue(menu.getCarried().isEmpty() && cloud.getContainer().getItem(2).getCount() == 16
+                && cloud.getContainer().getItem(3).getCount() == 16 && cloud.getContainer().getItem(4).getCount() == 8,
+                "Mixed insertion ignored item stack limits or stopped at the first empty slot");
+        menu.setCarried(new ItemStack(Items.BUCKET));
         player.containerMenu = player.inventoryMenu;
-        menu.handleFluidAction(player, new MessageCloudFluidAction(14, MessageCloudFluidAction.WITHDRAW, 1, 0));
+        menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 1, 0, false));
         helper.assertTrue(cloud.getFluids().storedAmount() == 1000, "Closed menu still allowed withdrawal");
-        var clientMenu = new CloudChestMenu(14, player.getInventory(), new net.minecraft.world.SimpleContainer(27));
+        var clientMenu = new CloudChestMenu(14, player.getInventory(), new net.minecraft.world.SimpleContainer(90));
         var large = new CloudFluidStorage(() -> 9_000_000_000L);
         large.fill(new FluidStack(Fluids.WATER, Integer.MAX_VALUE), EXECUTE);
         large.fill(new FluidStack(Fluids.WATER, Integer.MAX_VALUE), EXECUTE);
@@ -177,20 +200,24 @@ public final class FluidStorageTests {
             fluid.set(DataComponents.CUSTOM_NAME, Component.literal("Fluid " + i));
             large.fill(fluid, EXECUTE);
         }
-        var entries = large.snapshot();
-        for (int offset = 0; offset < entries.size(); offset += MessageCloudFluids.BATCH_SIZE) {
-            var packet = new MessageCloudFluids(14, large.revision(), large.capacity(), offset, entries.size(),
-                    entries.subList(offset, Math.min(entries.size(), offset + MessageCloudFluids.BATCH_SIZE)));
+        var entries = new java.util.ArrayList<CloudTerminalEntry>();
+        entries.add(CloudTerminalEntry.item(80, new ItemStack(Items.DIAMOND, 8)));
+        for (int i = 0; i < large.snapshot().size(); i++) entries.add(CloudTerminalEntry.fluid(i, large.snapshot().get(i)));
+        for (int i = 0; i < 20; i++) entries.add(CloudTerminalEntry.item(i, new ItemStack(Items.GOLD_INGOT, 2)));
+        for (int offset = 0; offset < entries.size(); offset += MessageCloudTerminalContents.BATCH_SIZE) {
+            var packet = new MessageCloudTerminalContents(14, large.revision(), 90, large.capacity(), offset, entries.size(),
+                    entries.subList(offset, Math.min(entries.size(), offset + MessageCloudTerminalContents.BATCH_SIZE)));
             var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
             try {
-                MessageCloudFluids.CODEC.encode(buf, packet);
-                clientMenu.receiveFluids(MessageCloudFluids.CODEC.decode(buf));
+                MessageCloudTerminalContents.CODEC.encode(buf, packet);
+                clientMenu.receiveTerminal(MessageCloudTerminalContents.CODEC.decode(buf));
             } finally { buf.release(); }
-            if (offset == 0) helper.assertTrue(clientMenu.getClientFluids().isEmpty(), "Incomplete snapshot exposed partial fluid ordering");
+            if (offset == 0) helper.assertTrue(clientMenu.getTerminalEntries().isEmpty(), "Incomplete snapshot exposed partial mixed ordering");
         }
-        helper.assertTrue(clientMenu.getClientFluids().size() == 21 && clientMenu.getClientFluids().getFirst().amount() == 4_294_967_294L
+        helper.assertTrue(clientMenu.getTerminalEntries().size() == 42 && clientMenu.getTerminalEntries().get(1).amount() == 4_294_967_294L
                 && clientMenu.getFluidCapacity() == 9_000_000_000L
-                && FluidStack.isSameFluidSameComponents(clientMenu.getClientFluids().getLast().fluid(), entries.getLast().fluid()), "Batched snapshot lost long counts or components");
+                && ItemStack.matches(clientMenu.getTerminalEntries().getFirst().item(), entries.getFirst().item())
+                && FluidStack.isSameFluidSameComponents(clientMenu.getTerminalEntries().get(21).fluid(), entries.get(21).fluid()), "Batched mixed snapshot lost long counts or components");
         helper.succeed();
     }
 

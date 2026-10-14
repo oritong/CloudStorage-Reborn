@@ -20,9 +20,11 @@
 
 ### 流体存储
 
-云箱现在也能存水、熔岩和模组流体。点右侧最下方的“流”按钮切到流体页，再点“物”返回物品页。
+云箱现在也能存水、熔岩和模组流体。物品和流体显示在同一个终端列表中，共用搜索框、排序和滚动，不需要切换页面。搜索也支持流体名称、`@模组ID` 和 `#标签`，客户端装有 JEC 时可以用拼音匹配。
 
-先把桶或流体容器拿到鼠标上。在流体区域右键，会把容器里的流体倒入云库存；左键点击已存的流体，会用它装填容器。每次点击处理一个容器，叠放的空桶填满后会放回背包，背包满了则掉在玩家脚边。普通桶每次需要完整的 1,000 mB，装不下或不够一桶时不会消耗容器；支持部分装填的模组容器按实际可转移量处理。鼠标悬停可查看流体名称、数量和总容量。
+先把桶或流体容器拿到鼠标上。在终端列表区域右键，会把容器里的流体倒入云库存；左键点击已存的流体，会用它装填容器。每次点击处理一个容器，叠放的空桶填满后会放回背包，背包满了则掉在玩家脚边。普通桶每次需要完整的 1,000 mB，装不下或不够一桶时不会消耗容器；支持部分装填的模组容器按实际可转移量处理。鼠标悬停可查看流体名称、数量和总容量。拿着装满的容器悬停在物品或空格上时，会分别提示「左键点击：存入 水桶」「右键点击：存入 水」。左键可以直接保存容器物品；也可以在背包里用 Shift 点击存入。
+
+按住 **Shift** 会固定列表排列，数量仍会实时更新。取完的条目暂时保留在原位，新加入的条目等松开 Shift 后再显示，方便连续点击存取。Shift 点击物品会将其转移到背包。
 
 流体与物品使用各自的容量。每上传一个普通箱子，除了 27 个物品槽位，还会增加 27,000 mB（27 桶）流体容量；多种流体共用这份流体容量，最多保存 256 种流体及其数据变体。私人流体库存沿用玩家 UUID 和气球颜色，静电流体库存沿用公共颜色，都会随世界保存。现阶段通过 GUI 存取，还没有加入流体管道接口。
 
@@ -80,7 +82,7 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 超越维度的联动测试可通过 `-PbeyondDimensionsTestJar=本地JAR路径` 加载它的运行库，运行 `runGameTestServer`，或加上 `-PbeyondDimensionsSmokeTest runClient` 检查两个存储界面的同步与渲染。目前使用超越维度 0.7.30 完成了实际存取测试；联动接口也按仓库中的 0.8.0-alpha.1 源码核对过。
 
-流体 GUI 的开发检查使用 `gradlew.bat -PfluidSmokeTest runClient`，会通过实际点击验证存入、取出、叠放空桶和分页滚动，保存截图后退出。
+终端 GUI 的开发检查使用 `gradlew.bat -PfluidSmokeTest runClient`，会通过实际点击验证物品和流体存取、叠放空桶、混合搜索、滚动和 Shift 排列锁定，保存截图后退出。
 
 目前通过了编译、12 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
@@ -106,9 +108,11 @@ Balloon arrows, Balloon Buddies, the Cloud Blower and sky structures are also in
 
 ### Fluid Storage
 
-Cloud Chests can now store water, lava and modded fluids. Click the bottom button on the right, marked **F**, to open fluid storage. Click **I** to return to items.
+Cloud Chests can now store water, lava and modded fluids. Items and fluids share one terminal list, search box, sort control and scrollbar. Searches include fluid names, `@modid` and `#tag`, with pinyin matching when JEC is installed on the client.
 
-Pick up a bucket or fluid container with your cursor. Right-click in the fluid grid to empty it into the cloud, or left-click a stored fluid to fill the container. Each click handles one container. When filling stacked buckets, the filled bucket goes into your inventory, or drops at your feet if the inventory is full. Regular buckets need a full 1,000 mB; insufficient space or fluid leaves them unchanged. Modded containers that support partial transfers move only what fits. Hover over the grid for fluid names, amounts and total capacity.
+Pick up a bucket or fluid container with your cursor. Right-click in the terminal grid to empty it into the cloud, or left-click a stored fluid to fill the container. Each click handles one container. When filling stacked buckets, the filled bucket goes into your inventory, or drops at your feet if the inventory is full. Regular buckets need a full 1,000 mB; insufficient space or fluid leaves them unchanged. Modded containers that support partial transfers move only what fits. Hover over the grid for fluid names, amounts and total capacity. With a filled container over an item or empty slot, a two-line tooltip distinguishes storing the container with left-click from emptying its fluid with right-click. You can also Shift-click a filled container from your inventory to store it as an item.
+
+Hold **Shift** to keep entries in place while their counts update. Depleted entries stay in their original positions, and new entries join the list when you release Shift. Shift-click an item to move it into your inventory.
 
 Items and fluids have separate capacities. Each uploaded regular chest adds 27 item slots and 27,000 mB of fluid space. Different fluids share that space, with up to 256 fluid types and data variants. Private storage follows the same player UUID and balloon color as items; static storage follows its shared color. Fluids are saved with the world. This first implementation supports GUI transfers; fluid pipes are not connected yet.
 
@@ -166,7 +170,7 @@ For development checks, run `./gradlew runGameTestServer` and `./gradlew -Pclien
 
 To check the integration, supply `-PbeyondDimensionsTestJar=/path/to/local.jar` and run `runGameTestServer`, or add `-PbeyondDimensionsSmokeTest runClient` to check synchronization and rendering of both storage screens. Actual storage operations have been tested with Beyond Dimensions 0.7.30. The bridge's API signatures were also checked against the supplied 0.8.0-alpha.1 source.
 
-Run `./gradlew -PfluidSmokeTest runClient` for the fluid GUI check. It performs real clicks to check deposits, withdrawals, stacked buckets and scrolling, saves screenshots, then exits.
+Run `./gradlew -PfluidSmokeTest runClient` for the terminal GUI check. It performs real clicks to check item and fluid transfers, stacked buckets, mixed searches, scrolling and Shift-locked ordering, saves screenshots, then exits.
 
 The port passes compilation, twelve server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 

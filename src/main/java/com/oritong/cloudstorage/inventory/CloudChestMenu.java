@@ -2,8 +2,8 @@ package com.oritong.cloudstorage.inventory;
 
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.network.MessageScrollCloudChest;
-import com.oritong.cloudstorage.network.MessageCloudFluidAction;
-import com.oritong.cloudstorage.network.MessageCloudFluids;
+import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
+import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
 import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.world.CSWorldData;
 import com.google.common.collect.Lists;
@@ -21,6 +21,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -41,14 +42,15 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final Player owner;
     private CloudFluidStorage fluidStorage;
     private Runnable fluidChanged = () -> { };
-    private boolean fluidView;
-    private long sentFluidRevision = -1;
-    private long sentFluidCapacity = -1;
-    private long fluidRevision = -1;
+    private long terminalRevision;
+    private long sentTerminalRevision = -1;
+    private long observedFluidRevision = -1;
+    private long observedFluidCapacity = -1;
+    private List<CloudTerminalEntry> terminalEntries = List.of();
+    private final List<CloudTerminalEntry> pendingTerminal = new ArrayList<>();
+    private long pendingTerminalRevision = -1;
+    private int pendingTerminalTotal;
     private long fluidCapacity;
-    private final List<CloudFluidStorage.Entry> clientFluids = new ArrayList<>();
-    private final List<CloudFluidStorage.Entry> pendingFluids = new ArrayList<>();
-    private long pendingFluidRevision = -1;
 
     public CloudChestMenu(int id, Inventory playerInv) {
         this(id, playerInv, new SimpleContainer(CloudStorage.PROXY.getVisibleCloudSlots()));
@@ -87,67 +89,138 @@ public class CloudChestMenu extends AbstractContainerMenu {
         fluidChanged = data::setDirty;
     }
 
-    public boolean isFluidView() { return fluidView; }
-    public void setFluidView(boolean view) { fluidView = view; }
-    public long getFluidRevision() { return fluidRevision; }
-    public long getFluidCapacity() { return fluidCapacity; }
-    public List<CloudFluidStorage.Entry> getClientFluids() { return Collections.unmodifiableList(clientFluids); }
+    public long getTerminalRevision() { return terminalRevision; }
+    public int getItemCapacity() { return container.getContainerSize(); }
+    public long getFluidCapacity() { return fluidStorage == null ? fluidCapacity : fluidStorage.capacity(); }
+    public List<CloudTerminalEntry> getTerminalEntries() { return terminalEntries; }
 
-    public void receiveFluids(MessageCloudFluids message) {
+    public void receiveTerminal(MessageCloudTerminalContents message) {
+        if (message.containerId() != containerId || message.revision() < terminalRevision) return;
         if (message.offset() == 0) {
-            pendingFluids.clear();
-            pendingFluidRevision = message.revision();
+            pendingTerminal.clear();
+            pendingTerminalRevision = message.revision();
+            pendingTerminalTotal = message.total();
         }
-        if (pendingFluidRevision != message.revision() || pendingFluids.size() != message.offset()) return;
-        pendingFluids.addAll(message.entries());
-        if (pendingFluids.size() == message.total()) {
-            clientFluids.clear();
-            clientFluids.addAll(pendingFluids);
-            fluidRevision = message.revision();
-            fluidCapacity = message.capacity();
+        if (pendingTerminalRevision != message.revision() || pendingTerminalTotal != message.total()
+                || pendingTerminal.size() != message.offset()) return;
+        pendingTerminal.addAll(message.entries());
+        if (pendingTerminal.size() == message.total()) {
+            terminalEntries = List.copyOf(pendingTerminal);
+            terminalRevision = message.revision();
+            fluidCapacity = message.fluidCapacity();
         }
     }
 
     @Override public void broadcastChanges() {
         super.broadcastChanges();
-        if (fluidStorage != null && owner instanceof ServerPlayer player && player.containerMenu == this
-                && (sentFluidRevision != fluidStorage.revision() || sentFluidCapacity != fluidStorage.capacity())) {
-            MessageCloudFluids.send(player, containerId, fluidStorage);
-            sentFluidRevision = fluidStorage.revision();
-            sentFluidCapacity = fluidStorage.capacity();
+        if (!owner.level().isClientSide()) refreshTerminal(false);
+    }
+
+    private void refreshTerminal(boolean force) {
+        boolean changed = fluidStorage != null
+                && (observedFluidRevision != fluidStorage.revision() || observedFluidCapacity != fluidStorage.capacity());
+        if (!changed) {
+            int entry = 0;
+            for (int i = 0; i < container.getContainerSize(); i++) {
+                ItemStack stack = container.getItem(i);
+                if (stack.isEmpty()) continue;
+                if (entry >= terminalEntries.size()) { changed = true; break; }
+                var previous = terminalEntries.get(entry++);
+                if (previous.isFluid() || previous.source() != i || !ItemStack.matches(stack, previous.item())) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (entry < terminalEntries.size() && !terminalEntries.get(entry).isFluid()) changed = true;
+        }
+        if (changed || force) {
+            List<CloudTerminalEntry> current = new ArrayList<>();
+            for (int i = 0; i < container.getContainerSize(); i++) {
+                ItemStack stack = container.getItem(i);
+                if (!stack.isEmpty()) current.add(CloudTerminalEntry.item(i, stack));
+            }
+            if (fluidStorage != null) {
+                var fluids = fluidStorage.snapshot();
+                for (int i = 0; i < fluids.size(); i++) current.add(CloudTerminalEntry.fluid(i, fluids.get(i)));
+            }
+            terminalEntries = List.copyOf(current);
+            terminalRevision++;
+            if (fluidStorage != null) {
+                observedFluidRevision = fluidStorage.revision();
+                observedFluidCapacity = fluidStorage.capacity();
+            }
+        }
+        if (owner instanceof ServerPlayer player && player.containerMenu == this && sentTerminalRevision != terminalRevision) {
+            MessageCloudTerminalContents.send(player, this, terminalEntries);
+            sentTerminalRevision = terminalRevision;
         }
     }
 
-    public void handleFluidAction(Player player, MessageCloudFluidAction message) {
+    public void handleTerminalAction(Player player, MessageCloudTerminalAction message) {
         if (player != owner || player.containerMenu != this || !stillValid(player)
-                || player.level().isClientSide() || fluidStorage == null || message.containerId() != containerId) return;
-        if (message.action() == MessageCloudFluidAction.ITEMS || message.action() == MessageCloudFluidAction.FLUIDS) {
-            fluidView = message.action() == MessageCloudFluidAction.FLUIDS;
-            if (fluidView) {
-                search(player, "");
-                sentFluidRevision = -1;
-                broadcastChanges();
-            }
+                || player.level().isClientSide() || message.containerId() != containerId
+                || message.button() < 0 || message.button() > 1 || message.entry() < -1) return;
+        refreshTerminal(false);
+        if (message.revision() != terminalRevision) {
+            refreshTerminal(true);
             return;
         }
-        if (!fluidView || (message.action() != MessageCloudFluidAction.DEPOSIT && message.action() != MessageCloudFluidAction.WITHDRAW)) return;
-        if (message.revision() != fluidStorage.revision()) {
-            sentFluidRevision = -1;
-            broadcastChanges();
-            return;
+        if (message.entry() >= terminalEntries.size()) return;
+        var entry = message.entry() < 0 ? null : terminalEntries.get(message.entry());
+        if (fluidStorage != null && message.button() == 1 && FluidUtil.getFluidContained(getCarried()).isPresent()) {
+            if (CloudFluidContainerInteraction.interact(player, this, fluidStorage, FluidStack.EMPTY, true)) fluidChanged.run();
+        } else if (entry != null && entry.isFluid()) {
+            if (message.button() == 0 && fluidStorage != null && CloudFluidContainerInteraction.interact(player, this,
+                    fluidStorage, entry.fluid().copyWithAmount(Integer.MAX_VALUE), false)) fluidChanged.run();
+        } else if (message.shift() && entry != null && getCarried().isEmpty()) {
+            ItemStack source = container.getItem(entry.source());
+            moveItemStackTo(source, cloudSlotCount(), slots.size(), true);
+            if (source.isEmpty()) container.setItem(entry.source(), ItemStack.EMPTY);
+            container.setChanged();
+        } else {
+            interactItem(entry, message.button());
         }
-        FluidStack selected = FluidStack.EMPTY;
-        if (message.action() == MessageCloudFluidAction.WITHDRAW) {
-            if (message.entry() < 0 || message.entry() >= fluidStorage.snapshot().size()) return;
-            selected = fluidStorage.getFluidInTank(message.entry()).copyWithAmount(Integer.MAX_VALUE);
-        }
-        if (CloudFluidContainerInteraction.interact(player, this, fluidStorage, selected,
-                message.action() == MessageCloudFluidAction.DEPOSIT)) fluidChanged.run();
         broadcastChanges();
+        fluidChanged.run();
+    }
+
+    private int cloudSlotCount() { return Math.min(container.getContainerSize(), 54); }
+
+    private void interactItem(CloudTerminalEntry entry, int button) {
+        ItemStack carried = getCarried();
+        if (carried.isEmpty()) {
+            if (entry != null) {
+                ItemStack source = container.getItem(entry.source());
+                int count = button == 0 ? source.getCount() : (source.getCount() + 1) / 2;
+                setCarried(source.split(count));
+                if (source.isEmpty()) container.setItem(entry.source(), ItemStack.EMPTY);
+            }
+        } else if (entry == null) {
+            insertCarried(button == 1 ? 1 : carried.getCount());
+        } else {
+            ItemStack source = container.getItem(entry.source());
+            if (ItemStack.isSameItemSameComponents(source, carried)) {
+                int count = Math.min(button == 1 ? 1 : carried.getCount(), Math.max(0, Math.min(container.getMaxStackSize(), source.getMaxStackSize()) - source.getCount()));
+                source.grow(count);
+                carried.shrink(count);
+            } else if (carried.getCount() <= Math.min(container.getMaxStackSize(), carried.getMaxStackSize())) {
+                container.setItem(entry.source(), carried);
+                setCarried(source);
+            }
+        }
+        if (getCarried().isEmpty()) setCarried(ItemStack.EMPTY);
+        container.setChanged();
+    }
+
+    private void insertCarried(int amount) {
+        ItemStack carried = getCarried();
+        ItemStack offered = carried.copyWithCount(amount);
+        moveItemStackToScrollable(offered, 0, container.getContainerSize(), false);
+        carried.shrink(amount - offered.getCount());
     }
 
     @Override public void clicked(int slotId, int button, ClickType type, Player player) {
-        if (fluidView && slotId >= 0 && slotId < slots.size() && slots.get(slotId) instanceof SlotCloudChest) return;
+        if (slotId >= 0 && slotId < slots.size() && slots.get(slotId) instanceof SlotCloudChest) return;
         super.clicked(slotId, button, type, player);
     }
 
@@ -212,7 +285,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     public ItemStack quickMoveStack(Player player, int slotIndex) {
-        if (fluidView || slotIndex < 0 || slotIndex >= slots.size()) return ItemStack.EMPTY;
+        if (slotIndex < cloudSlotCount() || slotIndex >= slots.size()) return ItemStack.EMPTY;
         ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.slots.get(slotIndex);
         int clampedSize = Math.min(this.container.getContainerSize(), 54);
@@ -232,6 +305,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
             } else {
                 slot.setChanged();
             }
+            fluidChanged.run();
         }
 
         return itemstack;
@@ -257,7 +331,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 ItemStack itemstack = this.container.getItem(i);
                 if (!itemstack.isEmpty() && ItemStack.isSameItemSameComponents(beingMoved, itemstack)) {
                     int j = itemstack.getCount() + beingMoved.getCount();
-                    int maxSize = Math.min(itemstack.getMaxStackSize(), beingMoved.getMaxStackSize());
+                    int maxSize = Math.min(container.getMaxStackSize(), Math.min(itemstack.getMaxStackSize(), beingMoved.getMaxStackSize()));
                     if (j <= maxSize) {
                         beingMoved.setCount(0);
                         itemstack.setCount(j);
@@ -286,7 +360,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 i = startAt;
             }
 
-            while (true) {
+            while (!beingMoved.isEmpty()) {
                 if (moveBackwards) {
                     if (i < startAt) {
                         break;
@@ -297,14 +371,10 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
                 ItemStack itemstack1 = this.container.getItem(i);
                 if (itemstack1.isEmpty()) {
-                    if (beingMoved.getCount() > itemstack1.getMaxStackSize()) {
-                        container.setItem(i, beingMoved.split(itemstack1.getMaxStackSize()));
-                    } else {
-                        container.setItem(i, beingMoved.split(beingMoved.getCount()));
-                    }
+                    int maxSize = Math.min(container.getMaxStackSize(), beingMoved.getMaxStackSize());
+                    container.setItem(i, beingMoved.split(Math.min(beingMoved.getCount(), maxSize)));
                     container.setChanged();
                     flag = true;
-                    break;
                 }
 
                 if (moveBackwards) {

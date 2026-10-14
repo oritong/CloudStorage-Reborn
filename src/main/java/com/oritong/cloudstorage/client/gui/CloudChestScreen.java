@@ -2,401 +2,284 @@ package com.oritong.cloudstorage.client.gui;
 
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.inventory.CloudChestMenu;
+import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
 import com.oritong.cloudstorage.inventory.SlotCloudChest;
-import com.oritong.cloudstorage.network.MessageSearchCloudChest;
-import com.oritong.cloudstorage.network.MessageRequestCloudSearch;
+import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudSearchContents;
-import com.oritong.cloudstorage.network.MessageCloudSearchMatches;
-import com.oritong.cloudstorage.client.compat.JustEnoughCharactersCompat;
-import com.oritong.cloudstorage.network.MessageSortCloudChest;
-import com.oritong.cloudstorage.network.MessageCloudFluidAction;
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidUtil;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.BitSet;
 
 public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
-
     public static final ResourceLocation TEXTURE = ResourceLocation.parse("cloudstorage_reborn:textures/gui/cloud_chest_gui.png");
-    private final int slots;
-    private float prevScrollOffs;
-    private float scrollOffs;
-    private boolean scrolling;
-    private CloudMiniButton balloonButton;
-    private CloudMiniButton sortButton;
-    private CloudMiniButton searchButton;
     private EditBox searchBox;
-    private int fluidScrollRow;
-    public int mode = 0;
-    private boolean ignoreTextInput;
-    private int searchRequestId;
-    private String requestedSearch = "";
-    private int receivedSearchItems;
-    private final BitSet searchMatches = new BitSet();
+    private int scrollRow;
+    private boolean scrolling;
+    private boolean consumeRelease;
+    private boolean shiftKeyHeld;
+    private List<CloudTerminalEntry> lockedOrder;
+    private List<CloudTerminalEntry> displayed = List.of();
+    private boolean sortByName = true;
+    private long displayedRevision = -1;
+    private String displayedQuery = "";
+    private boolean displayedSort;
+    private boolean displayedLocked;
+    public int mode;
 
-    public CloudChestScreen(CloudChestMenu menu, Inventory playerInv, Component component) {
-        super(menu, playerInv, component);
-        this.imageWidth = 195;
-        this.imageHeight = 222;
-        this.inventoryLabelY = this.imageHeight - 94;
-        this.slots = CloudStorage.PROXY.getVisibleCloudSlots();
+    public CloudChestScreen(CloudChestMenu menu, Inventory inventory, Component title) {
+        super(menu, inventory, title);
+        imageWidth = 195;
+        imageHeight = 222;
+        inventoryLabelY = imageHeight - 94;
     }
 
-    @Override
-    protected void init() {
+    @Override protected void init() {
         super.init();
-        resetButtons();
+        String previous = searchBox == null ? "" : searchBox.getValue();
+        searchBox = new EditBox(font, leftPos + 82, topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
+        searchBox.setMaxLength(50);
+        searchBox.setBordered(false);
+        searchBox.setTextColor(0xFFFFFF);
+        searchBox.setValue(previous);
+        searchBox.setResponder(query -> { scrollRow = 0; lockedOrder = null; updateDisplay(); });
+        addWidget(searchBox);
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 141, 0, button -> {
+            searchBox.setValue("");
+            scrollRow = 0;
+        }));
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 157, 1, button -> {
+            sortByName = !sortByName;
+            if (!orderLocked()) scrollRow = 0;
+        }));
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 173, 2, button -> searchBox.setFocused(true)));
+        updateDisplay();
     }
 
-    public void resetButtons() {
-        String previousSearch = mode == 2 && searchBox != null ? searchBox.getValue() : "";
-        this.clearWidgets();
-        int i = this.leftPos;
-        int j = this.topPos;
-        this.addRenderableWidget(balloonButton = new CloudMiniButton(this, i + 174, j + 141, 0, (button) -> {
-            searchFor("");
-            mode = 0;
-            resetButtons();
-        }));
-        this.addRenderableWidget(sortButton = new CloudMiniButton(this, i + 174, j + 141 + 16, 1, (button) -> {
-            searchFor("");
-            mode = 1;
-            resetButtons();
-        }));
-        this.addRenderableWidget(searchButton = new CloudMiniButton(this, i + 174, j + 141 + 32, 2, (button) -> {
-            mode = 2;
-            resetButtons();
-        }));
-        Button fluidButton = Button.builder(Component.translatable(menu.isFluidView()
-                ? "cloudstorage_reborn.container.item_tab" : "cloudstorage_reborn.container.fluid_tab"), button -> {
-            searchFor("");
-            mode = 0;
-            menu.setFluidView(!menu.isFluidView());
-            fluidScrollRow = 0;
-            scrollOffs = prevScrollOffs = 0;
-            CloudStorage.sendMSGToServer(new MessageCloudFluidAction(menu.containerId,
-                    menu.isFluidView() ? MessageCloudFluidAction.FLUIDS : MessageCloudFluidAction.ITEMS, 0, 0));
-            resetButtons();
-        }).bounds(i + 174, j + 189, 14, 14).build();
-        fluidButton.setTooltip(Tooltip.create(Component.translatable(menu.isFluidView()
-                ? "cloudstorage_reborn.container.items" : "cloudstorage_reborn.container.fluids")));
-        this.addRenderableWidget(fluidButton);
-        this.searchBox = new EditBox(this.font, this.leftPos + 82, this.topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
-        this.searchBox.setMaxLength(50);
-        this.searchBox.setValue(previousSearch);
-        this.searchBox.setBordered(false);
-        this.searchBox.setVisible(mode == 2);
-        this.searchBox.setFocused(mode == 2);
-        this.searchBox.setTextColor(16777215);
-        this.addWidget(this.searchBox);
-        balloonButton.active = !menu.isFluidView() && mode != 0;
-        sortButton.active = !menu.isFluidView() && mode != 1;
-        searchButton.active = !menu.isFluidView() && mode != 2;
+    public void receiveSearchContents(MessageCloudSearchContents message) { }
+    private boolean orderLocked() { return shiftKeyHeld || hasShiftDown(); }
+
+    private static boolean sameEntry(CloudTerminalEntry a, CloudTerminalEntry b) {
+        return a.isFluid() == b.isFluid() && (a.isFluid() ? FluidStack.isSameFluidSameComponents(a.fluid(), b.fluid())
+                : a.source() == b.source() && ItemStack.isSameItemSameComponents(a.item(), b.item()));
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int x, int y, float partialTicks) {
-        this.renderBackground(guiGraphics, x, y, partialTicks);
-        this.renderBg(guiGraphics, partialTicks, x, y);
-        super.render(guiGraphics, x, y, partialTicks);
-        if (menu.isFluidView()) renderFluids(guiGraphics, x, y);
-        else this.renderGraySlots(guiGraphics, x, y);
-        if (!menu.isFluidView() || fluidGridIndex(x, y) < 0) this.renderTooltip(guiGraphics, x, y);
+    private void updateDisplay() {
+        var current = menu.getTerminalEntries();
+        boolean locked = orderLocked();
+        String query = searchBox == null ? "" : searchBox.getValue().toLowerCase(Locale.ROOT);
+        if (displayedRevision == menu.getTerminalRevision() && displayedQuery.equals(query)
+                && displayedSort == sortByName && displayedLocked == locked) return;
+        if (locked) {
+            if (lockedOrder == null) lockedOrder = List.copyOf(displayed);
+            List<CloudTerminalEntry> refreshed = new ArrayList<>();
+            for (var key : lockedOrder) {
+                var entry = current.stream().filter(candidate -> sameEntry(key, candidate)).findFirst().orElse(null);
+                refreshed.add(entry == null ? new CloudTerminalEntry(key.source(), key.item(), key.fluid(), 0) : entry);
+            }
+            displayed = List.copyOf(refreshed);
+        } else {
+            lockedOrder = null;
+            List<CloudTerminalEntry> matches = new ArrayList<>();
+            for (var entry : current) if (matches(entry, query)) matches.add(entry);
+            if (sortByName) matches.sort(Comparator.comparing(entry -> name(entry).getString().toLowerCase(Locale.ROOT)));
+            displayed = List.copyOf(matches);
+            scrollRow = Math.min(scrollRow, maxScrollRow());
+        }
+        displayedRevision = menu.getTerminalRevision();
+        displayedQuery = query;
+        displayedSort = sortByName;
+        displayedLocked = locked;
     }
 
-    private int fluidGridIndex(double x, double y) {
+    private boolean matches(CloudTerminalEntry entry, String query) {
+        if (query.isEmpty()) return true;
+        if (!entry.isFluid()) return CloudChestMenu.matchesSearch(minecraft.player, query, entry.item());
+        if (query.startsWith("@")) return BuiltInRegistries.FLUID.getKey(entry.fluid().getFluid()).getNamespace().contains(query.substring(1));
+        if (query.startsWith("#")) return entry.fluid().getFluid().builtInRegistryHolder().tags().anyMatch(tag -> tag.location().toString().contains(query.substring(1)));
+        return CloudStorage.PROXY.matchesSearchText(name(entry).getString().toLowerCase(Locale.ROOT), query)
+                || CloudStorage.PROXY.matchesSearchText(BuiltInRegistries.FLUID.getKey(entry.fluid().getFluid()).toString(), query);
+    }
+
+    private static Component name(CloudTerminalEntry entry) {
+        if (!entry.isFluid()) return entry.item().getHoverName();
+        return entry.fluid().getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_NAME, entry.fluid().getHoverName());
+    }
+
+    public List<CloudTerminalEntry> getDisplayedEntries() { return displayed; }
+    public int getScrollRow() { return scrollRow; }
+    private int maxScrollRow() { return Math.max(0, (displayed.size() + 8) / 9 - 6); }
+    private int gridIndex(double x, double y) {
         int column = (int) Math.floor((x - leftPos - 8) / 18);
         int row = (int) Math.floor((y - topPos - 18) / 18);
-        return column >= 0 && column < 9 && row >= 0 && row < 6 ? (fluidScrollRow + row) * 9 + column : -1;
+        return column >= 0 && column < 9 && row >= 0 && row < 6 ? (scrollRow + row) * 9 + column : -1;
     }
 
-    @Override
-    protected void renderSlot(GuiGraphics graphics, Slot slot) {
-        if (!(menu.isFluidView() && slot instanceof SlotCloudChest)) super.renderSlot(graphics, slot);
+    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        updateDisplay();
+        super.render(graphics, mouseX, mouseY, partialTick);
+        int hovered = gridIndex(mouseX, mouseY);
+        var entry = hovered >= 0 && hovered < displayed.size() ? displayed.get(hovered) : null;
+        List<Component> containerTooltip = hovered >= 0 ? getContainerTooltip(entry) : List.of();
+        if (!containerTooltip.isEmpty()) {
+            graphics.renderComponentTooltip(font, containerTooltip, mouseX, mouseY);
+        } else if (entry != null && menu.getCarried().isEmpty()) {
+            if (entry.isFluid()) {
+                graphics.renderComponentTooltip(font, List.of(name(entry), Component.literal(String.format(Locale.ROOT, "%,d mB", entry.amount())),
+                        Component.translatable("cloudstorage_reborn.container.fluid_capacity", String.format(Locale.ROOT, "%,d", menu.getTerminalEntries().stream().filter(CloudTerminalEntry::isFluid).mapToLong(CloudTerminalEntry::amount).sum()),
+                                String.format(Locale.ROOT, "%,d", menu.getFluidCapacity()))), mouseX, mouseY);
+            } else graphics.renderTooltip(font, getTooltipFromContainerItem(entry.item()), entry.item().getTooltipImage(), entry.item(), mouseX, mouseY);
+        } else renderTooltip(graphics, mouseX, mouseY);
     }
 
-    private void renderFluids(GuiGraphics graphics, int mouseX, int mouseY) {
-        var entries = menu.getClientFluids();
-        fluidScrollRow = Math.min(fluidScrollRow, Math.max(0, (entries.size() + 8) / 9 - 6));
-        int hovered = fluidGridIndex(mouseX, mouseY);
+    /** Describe the two different actions of a carried container, without covering the grid with storage details. */
+    public List<Component> getContainerTooltip(CloudTerminalEntry hovered) {
+        ItemStack carried = menu.getCarried();
+        if (carried.isEmpty() || FluidUtil.getFluidHandler(carried.copyWithCount(1)).isEmpty()) return List.of();
+        var contained = FluidUtil.getFluidContained(carried.copyWithCount(1));
+        Component left = hovered != null && hovered.isFluid()
+                ? containerAction("take", "left", name(hovered))
+                : containerAction("store", "left", carried.getHoverName());
+        if (contained.isPresent()) {
+            FluidStack fluid = contained.get();
+            Component fluidName = fluid.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_NAME, fluid.getHoverName());
+            return List.of(left, containerAction("store", "right", fluidName));
+        }
+        return hovered != null && hovered.isFluid() ? List.of(left) : List.of();
+    }
+
+    private static Component containerAction(String action, String button, Component target) {
+        return Component.translatable("cloudstorage_reborn.container.action_" + action,
+                Component.translatable("cloudstorage_reborn.container.click_" + button),
+                target.copy().withStyle(ChatFormatting.GRAY)).withStyle(ChatFormatting.DARK_GRAY);
+    }
+
+    @Override protected void renderSlot(GuiGraphics graphics, Slot slot) {
+        if (!(slot instanceof SlotCloudChest)) super.renderSlot(graphics, slot);
+    }
+
+    @Override protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        graphics.setColor(1, 1, 1, 1);
+        graphics.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+        int hovered = gridIndex(mouseX, mouseY);
         for (int visible = 0; visible < 54; visible++) {
             int x = leftPos + 8 + visible % 9 * 18;
             int y = topPos + 18 + visible / 9 * 18;
             graphics.blit(TEXTURE, x - 1, y - 1, 0, 222, 18, 18);
-            int index = fluidScrollRow * 9 + visible;
-            if (index >= entries.size()) continue;
-            var entry = entries.get(index);
-            var extension = IClientFluidTypeExtensions.of(entry.fluid().getFluid());
-            ResourceLocation texture = extension.getStillTexture(entry.fluid());
-            if (texture != null) {
-                var sprite = minecraft.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
-                int color = extension.getTintColor(entry.fluid());
-                graphics.setColor((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F, (color >>> 24) / 255F);
-                graphics.blit(x, y, 0, 16, 16, sprite);
-                graphics.setColor(1, 1, 1, 1);
-            } else graphics.renderItem(new ItemStack(Items.BUCKET), x, y);
+            int index = scrollRow * 9 + visible;
+            if (index >= displayed.size()) continue;
+            var entry = displayed.get(index);
+            if (entry.isFluid()) renderFluid(graphics, entry, x, y);
+            else {
+                graphics.renderItem(entry.item(), x, y);
+                graphics.renderItemDecorations(font, entry.item(), x, y, entry.amount() == 0 ? "0" : null);
+            }
+            if (entry.amount() == 0) graphics.fill(x, y, x + 16, y + 16, 0x90000000);
             if (hovered == index) graphics.fill(x, y, x + 16, y + 16, 0x60FFFFFF);
-            String amount = entry.amount() >= 1000 ? String.format(Locale.ROOT, "%.1fB", entry.amount() / 1000D) : entry.amount() + "mB";
-            graphics.pose().pushPose();
-            graphics.pose().translate(x + 16, y + 11, 200);
-            graphics.pose().scale(0.5F, 0.5F, 1);
-            graphics.drawString(font, amount, -font.width(amount), 0, 0xFFFFFF, true);
-            graphics.pose().popPose();
         }
-        if (hovered >= 0) {
-            java.util.List<Component> tooltip = new java.util.ArrayList<>();
-            if (hovered < entries.size()) {
-                var entry = entries.get(hovered);
-                tooltip.add(entry.fluid().getHoverName());
-                tooltip.add(Component.literal(String.format(Locale.ROOT, "%,d mB", entry.amount())));
-            }
-            tooltip.add(Component.translatable("cloudstorage_reborn.container.fluid_usage"));
-            tooltip.add(Component.translatable("cloudstorage_reborn.container.fluid_capacity",
-                    String.format(Locale.ROOT, "%,d", entries.stream().mapToLong(e -> e.amount()).sum()),
-                    String.format(Locale.ROOT, "%,d", menu.getFluidCapacity())));
-            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
-        }
+        int max = maxScrollRow();
+        graphics.blit(TEXTURE, leftPos + 175, topPos + 18 + (max == 0 ? 0 : Math.round(95F * scrollRow / max)), 232 + (max > 0 ? 0 : 12), 0, 12, 15);
+        graphics.blit(TEXTURE, leftPos + 79, topPos + 4, 36, 222, 90, 12);
+        searchBox.render(graphics, mouseX, mouseY, partialTick);
     }
 
-    private void renderGraySlots(GuiGraphics guiGraphics, int x, int y) {
-        RenderSystem.enableDepthTest();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.5F);
-        int i = this.leftPos;
-        int j = this.topPos;
-        int clampedSize = Math.min(this.slots, 54);
-        int ySlots = clampedSize / 9;
-        for (int k = 0; k < ySlots; ++k) {
-            for (int l = 0; l < 9 && l + k * 9 < clampedSize; ++l) {
-                if(menu.isSlotGray(l + k * 9)){
-                    guiGraphics.blit(TEXTURE, i + 7 + l * 18, j + 17 + k * 18, 126, 222, 18, 18);
-                }
-            }
-        }
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+    private void renderFluid(GuiGraphics graphics, CloudTerminalEntry entry, int x, int y) {
+        var extension = IClientFluidTypeExtensions.of(entry.fluid().getFluid());
+        var texture = extension.getStillTexture(entry.fluid());
+        if (texture != null) {
+            var sprite = minecraft.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
+            int color = extension.getTintColor(entry.fluid());
+            graphics.setColor((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F, (color >>> 24) / 255F);
+            graphics.blit(x, y, 0, 16, 16, sprite);
+            graphics.setColor(1, 1, 1, 1);
+        } else graphics.renderItem(new ItemStack(Items.BUCKET), x, y);
+        String amount = entry.amount() >= 1000 ? String.format(Locale.ROOT, "%.1fB", entry.amount() / 1000D) : entry.amount() + "mB";
+        graphics.pose().pushPose();
+        graphics.pose().translate(x + 16, y + 11, 200);
+        graphics.pose().scale(0.5F, 0.5F, 1);
+        graphics.drawString(font, amount, -font.width(amount), 0, 0xFFFFFF, true);
+        graphics.pose().popPose();
     }
 
-    public boolean charTyped(char p_98521_, int p_98522_) {
-        if (this.ignoreTextInput) {
-            return false;
-        }else if (this.mode != 2) {
-            return false;
-        } else {
-            String s = this.searchBox.getValue();
-            if (this.searchBox.charTyped(p_98521_, p_98522_)) {
-                if (!Objects.equals(s, this.searchBox.getValue())) {
-                    this.refreshSearchResults();
-                }
-
-                return true;
-            } else {
-                return false;
-            }
-        }
+    @Override protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        graphics.drawString(font, title, titleLabelX, titleLabelY, 4210752, false);
+        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 4210752, false);
     }
 
-    private void refreshSearchResults() {
-        String s = this.searchBox.getValue().toLowerCase(Locale.ROOT);
-        searchFor(s);
-    }
-
-    private void searchFor(String s) {
-        ++searchRequestId;
-        requestedSearch = s;
-        receivedSearchItems = 0;
-        searchMatches.clear();
-        this.menu.scrollTo(0.0F, true);
-        if (!s.isEmpty() && !s.startsWith("@") && !s.startsWith("#") && JustEnoughCharactersCompat.isAvailable()) {
-            CloudStorage.sendMSGToServer(new MessageRequestCloudSearch(menu.containerId, searchRequestId, s));
-        } else {
-            CloudStorage.sendMSGToServer(new MessageSearchCloudChest(s));
-        }
-        this.menu.updateGrays(minecraft.player, s);
-    }
-
-    public void receiveSearchContents(MessageCloudSearchContents message) {
-        if (message.containerId() != menu.containerId || message.requestId() != searchRequestId
-                || !message.search().equals(requestedSearch)) return;
-        if (message.offset() == 0) {
-            receivedSearchItems = 0;
-            searchMatches.clear();
-        }
-        if (message.offset() != receivedSearchItems || (long) message.offset() + message.items().size() > message.total()) return;
-        for (var stack : message.items()) {
-            if (CloudChestMenu.matchesSearch(minecraft.player, requestedSearch, stack)) searchMatches.set(receivedSearchItems);
-            receivedSearchItems++;
-        }
-        if (receivedSearchItems == message.total()) {
-            CloudStorage.sendMSGToServer(new MessageCloudSearchMatches(menu.containerId, searchRequestId, (BitSet) searchMatches.clone()));
-        }
-    }
-
-    protected void renderLabels(GuiGraphics guiGraphics, int x, int y) {
-        if (menu.isFluidView()) {
-            guiGraphics.drawString(font, Component.translatable("cloudstorage_reborn.container.fluids"), this.titleLabelX, this.titleLabelY, 4210752, false);
-        } else if(mode == 2){
-            guiGraphics.drawString(font, Component.translatable("cloudstorage_reborn.container.cloud_chest.searchbar"), this.titleLabelX + 20, this.titleLabelY, 4210752, false);
-        }else{
-            guiGraphics.drawString(font, this.title, this.titleLabelX, this.titleLabelY, 4210752, false);
-        }
-        guiGraphics.drawString(font, this.playerInventoryTitle, this.inventoryLabelX, this.inventoryLabelY, 4210752, false);
-    }
-
-    public boolean keyPressed(int p_98547_, int p_98548_, int p_98549_) {
-        this.ignoreTextInput = false;
-        if (mode == 2){
-            boolean flag = this.hoveredSlot != null && this.hoveredSlot.hasItem();
-            boolean flag1 = InputConstants.getKey(p_98547_, p_98548_).getNumericKeyValue().isPresent();
-            if (flag && flag1 && this.checkHotbarKeyPressed(p_98547_, p_98548_)) {
-                this.ignoreTextInput = true;
-                return true;
-            } else {
-                String s = this.searchBox.getValue();
-                if (this.searchBox.keyPressed(p_98547_, p_98548_, p_98549_)) {
-                    if (!Objects.equals(s, this.searchBox.getValue())) {
-                        this.refreshSearchResults();
-                    }
-
-                    return true;
-                } else {
-                    return this.searchBox.isFocused() && this.searchBox.isVisible() && p_98547_ != 256 ? true : super.keyPressed(p_98547_, p_98548_, p_98549_);
-                }
-            }
-        }
-        return super.keyPressed(p_98547_, p_98548_, p_98549_);
-    }
-
-    public boolean keyReleased(int p_98612_, int p_98613_, int p_98614_) {
-        this.ignoreTextInput = false;
-        return super.keyReleased(p_98612_, p_98613_, p_98614_);
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalScroll, double verticalScroll) {
-        if (menu.isFluidView()) {
-            int max = Math.max(0, (menu.getClientFluids().size() + 8) / 9 - 6);
-            fluidScrollRow = Mth.clamp(fluidScrollRow - (int) Math.signum(verticalScroll), 0, max);
-            scrollOffs = max == 0 ? 0 : fluidScrollRow / (float) max;
+    @Override public boolean charTyped(char character, int modifiers) { return searchBox.charTyped(character, modifiers); }
+    @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+        if (key == 340 || key == 344) {
+            updateDisplay();
+            shiftKeyHeld = true;
+            lockedOrder = List.copyOf(displayed);
             return true;
         }
-        if (!this.canScroll()) {
-            return false;
-        } else {
-            int i = (slots + 9 - 1) / 9 - 5;
-            float f = (float) (verticalScroll / (double) i);
-            this.scrollOffs = Mth.clamp(this.scrollOffs - f, 0.0F, 1.0F);
-            this.menu.scrollTo(this.scrollOffs, true);
+        if (searchBox.isFocused() && key != 256) {
+            searchBox.keyPressed(key, scanCode, modifiers);
             return true;
         }
+        return super.keyPressed(key, scanCode, modifiers);
+    }
+    @Override public boolean keyReleased(int key, int scanCode, int modifiers) {
+        if (key == 340 || key == 344) { shiftKeyHeld = false; lockedOrder = null; updateDisplay(); }
+        return super.keyReleased(key, scanCode, modifiers);
     }
 
-    public boolean mouseDragged(double p_98535_, double p_98536_, int p_98537_, double p_98538_, double p_98539_) {
-        if (this.scrolling) {
-            int i = this.topPos + 18;
-            int j = i + 112;
-            this.scrollOffs = ((float) p_98536_ - (float) i - 7.5F) / ((float) (j - i) - 15.0F);
-            this.scrollOffs = Mth.clamp(this.scrollOffs, 0.0F, 1.0F);
-            if (menu.isFluidView()) fluidScrollRow = Math.round(scrollOffs * Math.max(0, (menu.getClientFluids().size() + 8) / 9 - 6));
-            else this.menu.scrollTo(this.scrollOffs, true);
-            return true;
-        } else {
-            return super.mouseDragged(p_98535_, p_98536_, p_98537_, p_98538_, p_98539_);
-        }
-    }
-
-    public boolean mouseClicked(double x, double y, int mouseBtn) {
-        int fluidIndex = fluidGridIndex(x, y);
-        if (menu.isFluidView() && fluidIndex >= 0) {
-            if (mouseBtn == 1 || mouseBtn == 0 && fluidIndex < menu.getClientFluids().size()) {
-                CloudStorage.sendMSGToServer(new MessageCloudFluidAction(menu.containerId,
-                        mouseBtn == 1 ? MessageCloudFluidAction.DEPOSIT : MessageCloudFluidAction.WITHDRAW,
-                        menu.getFluidRevision(), fluidIndex));
+    @Override public boolean mouseClicked(double x, double y, int button) {
+        updateDisplay();
+        int index = gridIndex(x, y);
+        if (index >= 0) {
+            consumeRelease = true;
+            isQuickCrafting = false;
+            quickCraftSlots.clear();
+            if (button == 0 || button == 1) {
+                var entry = index < displayed.size() ? displayed.get(index) : null;
+                int serverIndex = entry == null ? -1 : menu.getTerminalEntries().indexOf(entry);
+                if (entry == null || entry.amount() > 0 && serverIndex >= 0)
+                    CloudStorage.sendMSGToServer(new MessageCloudTerminalAction(menu.containerId, menu.getTerminalRevision(), serverIndex, button, orderLocked()));
             }
             return true;
         }
-        if (mouseBtn == 0 && this.insideScrollbar(x, y)) {
-            double d0 = x - (double) this.leftPos;
-            double d1 = y - (double) this.topPos;
-            this.scrolling = this.canScroll();
+        if (button == 0 && x >= leftPos + 175 && x < leftPos + 189 && y >= topPos + 18 && y < topPos + 130) {
+            scrolling = maxScrollRow() > 0;
+            return true;
         }
-        return super.mouseClicked(x, y, mouseBtn);
+        return super.mouseClicked(x, y, button);
     }
 
-    protected boolean insideScrollbar(double p_98524_, double p_98525_) {
-        int i = this.leftPos;
-        int j = this.topPos;
-        int k = i + 175;
-        int l = j + 18;
-        int i1 = k + 14;
-        int j1 = l + 112;
-        return p_98524_ >= (double) k && p_98525_ >= (double) l && p_98524_ < (double) i1 && p_98525_ < (double) j1;
+    @Override public boolean mouseReleased(double x, double y, int button) {
+        scrolling = false;
+        if (consumeRelease) { consumeRelease = false; return true; }
+        return super.mouseReleased(x, y, button);
     }
-
-    private boolean canScroll() {
-        if (menu.isFluidView()) return menu.getClientFluids().size() > 54;
-        return slots > 54;
+    @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        if (scrolling) { scrollRow = Math.round(Mth.clamp(((float) y - topPos - 25.5F) / 97F, 0, 1) * maxScrollRow()); return true; }
+        if (consumeRelease) return true;
+        return super.mouseDragged(x, y, button, dx, dy);
     }
-
-    @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTicks, int x, int y) {
-        RenderSystem.setShader(GameRenderer::getPositionTexShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        int i = this.leftPos;
-        int j = this.topPos;
-        guiGraphics.blit(TEXTURE, i, j, 0, 0, this.imageWidth, this.imageHeight);
-        int clampedSize = Math.min(this.slots, 54);
-        int ySlots = (int)Math.ceil(clampedSize / 9F);
-        for (int k = 0; k < ySlots; ++k) {
-            for (int l = 0; l < 9 && l + k * 9 < clampedSize; ++l) {
-                boolean hidden = menu.isSlotGray(l + k * 9);
-                guiGraphics.blit(TEXTURE, i + 7 + l * 18, j + 17 + k * 18, hidden ? 18 : 0, 222, 18, 18);
-            }
-        }
-        int k = j + 18;
-        int l = j + 130;
-        float scrollOffsForRender = this.prevScrollOffs + (this.scrollOffs - this.prevScrollOffs) * partialTicks;
-        guiGraphics.blit(TEXTURE, i + 175, k + (int) ((float) (l - k - 17) * scrollOffsForRender), 232 + (this.canScroll() ? 0 : 12), 0, 12, 15);
-        if(this.mode == 2){
-            guiGraphics.blit(TEXTURE, i + 79, k - 14, 36, 222, 90, 12);
-            this.searchBox.render(guiGraphics, x, y, partialTicks);
-        }
+    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        scrollRow = Mth.clamp(scrollRow - (int) Math.signum(vertical), 0, maxScrollRow());
+        return true;
     }
-
-    public void onClose() {
-        this.searchFor("");
-        super.onClose();
-    }
-
-    protected void containerTick() {
-        if(this.mode == 2 || this.prevScrollOffs != scrollOffs){
-            this.menu.updateGrays(minecraft.player, this.searchBox.getValue().toLowerCase(Locale.ROOT));
-        }
-        this.prevScrollOffs = scrollOffs;
-        if(this.mode == 1){ // sort
-            this.mode = 0;
-            this.menu.scrollTo(0.0F, true);
-            CloudStorage.sendMSGToServer(new MessageSortCloudChest(0));
-            this.resetButtons();
-        }
-    }
+    @Override protected void containerTick() { updateDisplay(); }
 }

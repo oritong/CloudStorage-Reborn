@@ -59,9 +59,9 @@ public class SlotCloudChest extends Slot {
         return isGray;
     }
 
-    @Override public boolean isActive() { return !menu.isFluidView(); }
-    @Override public boolean mayPlace(ItemStack stack) { return !menu.isFluidView() && super.mayPlace(stack); }
-    @Override public boolean mayPickup(Player player) { return !menu.isFluidView() && super.mayPickup(player); }
+    @Override public boolean isActive() { return false; }
+    @Override public boolean mayPlace(ItemStack stack) { return false; }
+    @Override public boolean mayPickup(Player player) { return false; }
 
     public void setGray(boolean isGray){
         this.isGray = isGray;

@@ -95,9 +95,9 @@ public class CloudStorage
         });
     }
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("3");
-        registrar.playToServer(MessageCloudFluidAction.TYPE, MessageCloudFluidAction.CODEC, MessageCloudFluidAction::handle);
-        registrar.playToClient(MessageCloudFluids.TYPE, MessageCloudFluids.CODEC, MessageCloudFluids::handle);
+        var registrar = event.registrar("4");
+        registrar.playToServer(MessageCloudTerminalAction.TYPE, MessageCloudTerminalAction.CODEC, MessageCloudTerminalAction::handle);
+        registrar.playToClient(MessageCloudTerminalContents.TYPE, MessageCloudTerminalContents.CODEC, MessageCloudTerminalContents::handle);
         registrar.playToServer(MessageSortCloudChest.TYPE, MessageSortCloudChest.CODEC, MessageSortCloudChest.Handler::handle);
         registrar.playToServer(MessageSearchCloudChest.TYPE, MessageSearchCloudChest.CODEC, MessageSearchCloudChest.Handler::handle);
         registrar.playToServer(MessageRequestCloudSearch.TYPE, MessageRequestCloudSearch.CODEC, MessageRequestCloudSearch::handle);
