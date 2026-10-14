@@ -1,5 +1,11 @@
 {
   "itemGroup.cloudstorage_reborn": "Cloud Storage:Reborn",
+  "cloudstorage_reborn.container.items": "Item storage",
+  "cloudstorage_reborn.container.fluids": "Fluid storage",
+  "cloudstorage_reborn.container.item_tab": "I",
+  "cloudstorage_reborn.container.fluid_tab": "F",
+  "cloudstorage_reborn.container.fluid_usage": "Right-click: empty held container. Left-click fluid: fill it.",
+  "cloudstorage_reborn.container.fluid_capacity": "Capacity: %s / %s mB",
   "config.cloudstorage_reborn.beyond_dimensions_storage": "Beyond Dimensions storage (WIP)",
   "config.cloudstorage_reborn.beyond_dimensions_transfer_interval_seconds": "Background transfer interval (seconds)",
   "entity.cloudstorage_reborn.badloon": "Badloon",

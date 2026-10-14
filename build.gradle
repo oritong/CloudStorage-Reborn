@@ -3,7 +3,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.111'
 }
 
-version = '1.0.1'
+version = '1.0.2'
 group = 'com.oritong.cloudstorage'
 base.archivesName = 'cloudstorage_reborn'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
@@ -19,6 +19,9 @@ neoForge {
             }
             if (project.hasProperty('clientSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.clientSmokeTest', 'true'
+            }
+            if (project.hasProperty('fluidSmokeTest')) {
+                systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
             }
         }
         server {

@@ -1,6 +1,7 @@
 package com.oritong.cloudstorage.misc;
 
 import com.oritong.cloudstorage.inventory.CloudChestContainer;
+import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.SimpleContainer;
@@ -13,6 +14,7 @@ public class CloudIndex {
     private int balloonColor;
     private int containerSize;
     private CloudChestContainer container;
+    private final CloudFluidStorage fluids = new CloudFluidStorage(() -> Math.max(0L, containerSize) * 1000L);
 
     public CloudIndex(UUID playerUUID, int balloonColor, int size){
         this.playerUUID = playerUUID;
@@ -27,6 +29,7 @@ public class CloudIndex {
         this.playerUUID = innerTag.getUUID("PlayerUUID");
         this.container = new CloudChestContainer(this.containerSize);
         this.container.fromTag(innerTag.getList("ContainerTag", 10), registries);
+        this.fluids.load(innerTag.getList("Fluids", 10), registries);
     }
 
     public void writeToNBT(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
@@ -34,6 +37,7 @@ public class CloudIndex {
         tag.putInt("Size", containerSize);
         tag.putUUID("PlayerUUID", playerUUID);
         tag.put("ContainerTag", this.container.createTag(registries));
+        tag.put("Fluids", this.fluids.save(registries));
     }
 
     public void resize(int newSize){
@@ -62,6 +66,8 @@ public class CloudIndex {
     public SimpleContainer getContainer() {
         return container;
     }
+
+    public CloudFluidStorage getFluids() { return fluids; }
 
     public UUID getPlayerUUID(){
         return playerUUID;

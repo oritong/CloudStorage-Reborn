@@ -2,23 +2,32 @@ package com.oritong.cloudstorage.client.gui;
 
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.inventory.CloudChestMenu;
+import com.oritong.cloudstorage.inventory.SlotCloudChest;
 import com.oritong.cloudstorage.network.MessageSearchCloudChest;
 import com.oritong.cloudstorage.network.MessageRequestCloudSearch;
 import com.oritong.cloudstorage.network.MessageCloudSearchContents;
 import com.oritong.cloudstorage.network.MessageCloudSearchMatches;
 import com.oritong.cloudstorage.client.compat.JustEnoughCharactersCompat;
 import com.oritong.cloudstorage.network.MessageSortCloudChest;
+import com.oritong.cloudstorage.network.MessageCloudFluidAction;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.Slot;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -35,6 +44,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     private CloudMiniButton sortButton;
     private CloudMiniButton searchButton;
     private EditBox searchBox;
+    private int fluidScrollRow;
     public int mode = 0;
     private boolean ignoreTextInput;
     private int searchRequestId;
@@ -75,6 +85,20 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             mode = 2;
             resetButtons();
         }));
+        Button fluidButton = Button.builder(Component.translatable(menu.isFluidView()
+                ? "cloudstorage_reborn.container.item_tab" : "cloudstorage_reborn.container.fluid_tab"), button -> {
+            searchFor("");
+            mode = 0;
+            menu.setFluidView(!menu.isFluidView());
+            fluidScrollRow = 0;
+            scrollOffs = prevScrollOffs = 0;
+            CloudStorage.sendMSGToServer(new MessageCloudFluidAction(menu.containerId,
+                    menu.isFluidView() ? MessageCloudFluidAction.FLUIDS : MessageCloudFluidAction.ITEMS, 0, 0));
+            resetButtons();
+        }).bounds(i + 174, j + 189, 14, 14).build();
+        fluidButton.setTooltip(Tooltip.create(Component.translatable(menu.isFluidView()
+                ? "cloudstorage_reborn.container.items" : "cloudstorage_reborn.container.fluids")));
+        this.addRenderableWidget(fluidButton);
         this.searchBox = new EditBox(this.font, this.leftPos + 82, this.topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
         this.searchBox.setMaxLength(50);
         this.searchBox.setValue(previousSearch);
@@ -83,9 +107,9 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         this.searchBox.setFocused(mode == 2);
         this.searchBox.setTextColor(16777215);
         this.addWidget(this.searchBox);
-        balloonButton.active = mode != 0;
-        sortButton.active = mode != 1;
-        searchButton.active = mode != 2;
+        balloonButton.active = !menu.isFluidView() && mode != 0;
+        sortButton.active = !menu.isFluidView() && mode != 1;
+        searchButton.active = !menu.isFluidView() && mode != 2;
     }
 
     @Override
@@ -93,8 +117,63 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         this.renderBackground(guiGraphics, x, y, partialTicks);
         this.renderBg(guiGraphics, partialTicks, x, y);
         super.render(guiGraphics, x, y, partialTicks);
-        this.renderGraySlots(guiGraphics, x, y);
-        this.renderTooltip(guiGraphics, x, y);
+        if (menu.isFluidView()) renderFluids(guiGraphics, x, y);
+        else this.renderGraySlots(guiGraphics, x, y);
+        if (!menu.isFluidView() || fluidGridIndex(x, y) < 0) this.renderTooltip(guiGraphics, x, y);
+    }
+
+    private int fluidGridIndex(double x, double y) {
+        int column = (int) Math.floor((x - leftPos - 8) / 18);
+        int row = (int) Math.floor((y - topPos - 18) / 18);
+        return column >= 0 && column < 9 && row >= 0 && row < 6 ? (fluidScrollRow + row) * 9 + column : -1;
+    }
+
+    @Override
+    protected void renderSlot(GuiGraphics graphics, Slot slot) {
+        if (!(menu.isFluidView() && slot instanceof SlotCloudChest)) super.renderSlot(graphics, slot);
+    }
+
+    private void renderFluids(GuiGraphics graphics, int mouseX, int mouseY) {
+        var entries = menu.getClientFluids();
+        fluidScrollRow = Math.min(fluidScrollRow, Math.max(0, (entries.size() + 8) / 9 - 6));
+        int hovered = fluidGridIndex(mouseX, mouseY);
+        for (int visible = 0; visible < 54; visible++) {
+            int x = leftPos + 8 + visible % 9 * 18;
+            int y = topPos + 18 + visible / 9 * 18;
+            graphics.blit(TEXTURE, x - 1, y - 1, 0, 222, 18, 18);
+            int index = fluidScrollRow * 9 + visible;
+            if (index >= entries.size()) continue;
+            var entry = entries.get(index);
+            var extension = IClientFluidTypeExtensions.of(entry.fluid().getFluid());
+            ResourceLocation texture = extension.getStillTexture(entry.fluid());
+            if (texture != null) {
+                var sprite = minecraft.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(texture);
+                int color = extension.getTintColor(entry.fluid());
+                graphics.setColor((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F, (color >>> 24) / 255F);
+                graphics.blit(x, y, 0, 16, 16, sprite);
+                graphics.setColor(1, 1, 1, 1);
+            } else graphics.renderItem(new ItemStack(Items.BUCKET), x, y);
+            if (hovered == index) graphics.fill(x, y, x + 16, y + 16, 0x60FFFFFF);
+            String amount = entry.amount() >= 1000 ? String.format(Locale.ROOT, "%.1fB", entry.amount() / 1000D) : entry.amount() + "mB";
+            graphics.pose().pushPose();
+            graphics.pose().translate(x + 16, y + 11, 200);
+            graphics.pose().scale(0.5F, 0.5F, 1);
+            graphics.drawString(font, amount, -font.width(amount), 0, 0xFFFFFF, true);
+            graphics.pose().popPose();
+        }
+        if (hovered >= 0) {
+            java.util.List<Component> tooltip = new java.util.ArrayList<>();
+            if (hovered < entries.size()) {
+                var entry = entries.get(hovered);
+                tooltip.add(entry.fluid().getHoverName());
+                tooltip.add(Component.literal(String.format(Locale.ROOT, "%,d mB", entry.amount())));
+            }
+            tooltip.add(Component.translatable("cloudstorage_reborn.container.fluid_usage"));
+            tooltip.add(Component.translatable("cloudstorage_reborn.container.fluid_capacity",
+                    String.format(Locale.ROOT, "%,d", entries.stream().mapToLong(e -> e.amount()).sum()),
+                    String.format(Locale.ROOT, "%,d", menu.getFluidCapacity())));
+            graphics.renderComponentTooltip(font, tooltip, mouseX, mouseY);
+        }
     }
 
     private void renderGraySlots(GuiGraphics guiGraphics, int x, int y) {
@@ -173,7 +252,9 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     protected void renderLabels(GuiGraphics guiGraphics, int x, int y) {
-        if(mode == 2){
+        if (menu.isFluidView()) {
+            guiGraphics.drawString(font, Component.translatable("cloudstorage_reborn.container.fluids"), this.titleLabelX, this.titleLabelY, 4210752, false);
+        } else if(mode == 2){
             guiGraphics.drawString(font, Component.translatable("cloudstorage_reborn.container.cloud_chest.searchbar"), this.titleLabelX + 20, this.titleLabelY, 4210752, false);
         }else{
             guiGraphics.drawString(font, this.title, this.titleLabelX, this.titleLabelY, 4210752, false);
@@ -210,12 +291,19 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         return super.keyReleased(p_98612_, p_98613_, p_98614_);
     }
 
-    public boolean mouseScrolled(double p_98527_, double p_98528_, double p_98529_) {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalScroll, double verticalScroll) {
+        if (menu.isFluidView()) {
+            int max = Math.max(0, (menu.getClientFluids().size() + 8) / 9 - 6);
+            fluidScrollRow = Mth.clamp(fluidScrollRow - (int) Math.signum(verticalScroll), 0, max);
+            scrollOffs = max == 0 ? 0 : fluidScrollRow / (float) max;
+            return true;
+        }
         if (!this.canScroll()) {
             return false;
         } else {
             int i = (slots + 9 - 1) / 9 - 5;
-            float f = (float) (p_98529_ / (double) i);
+            float f = (float) (verticalScroll / (double) i);
             this.scrollOffs = Mth.clamp(this.scrollOffs - f, 0.0F, 1.0F);
             this.menu.scrollTo(this.scrollOffs, true);
             return true;
@@ -228,7 +316,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             int j = i + 112;
             this.scrollOffs = ((float) p_98536_ - (float) i - 7.5F) / ((float) (j - i) - 15.0F);
             this.scrollOffs = Mth.clamp(this.scrollOffs, 0.0F, 1.0F);
-            this.menu.scrollTo(this.scrollOffs, true);
+            if (menu.isFluidView()) fluidScrollRow = Math.round(scrollOffs * Math.max(0, (menu.getClientFluids().size() + 8) / 9 - 6));
+            else this.menu.scrollTo(this.scrollOffs, true);
             return true;
         } else {
             return super.mouseDragged(p_98535_, p_98536_, p_98537_, p_98538_, p_98539_);
@@ -236,6 +325,15 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     public boolean mouseClicked(double x, double y, int mouseBtn) {
+        int fluidIndex = fluidGridIndex(x, y);
+        if (menu.isFluidView() && fluidIndex >= 0) {
+            if (mouseBtn == 1 || mouseBtn == 0 && fluidIndex < menu.getClientFluids().size()) {
+                CloudStorage.sendMSGToServer(new MessageCloudFluidAction(menu.containerId,
+                        mouseBtn == 1 ? MessageCloudFluidAction.DEPOSIT : MessageCloudFluidAction.WITHDRAW,
+                        menu.getFluidRevision(), fluidIndex));
+            }
+            return true;
+        }
         if (mouseBtn == 0 && this.insideScrollbar(x, y)) {
             double d0 = x - (double) this.leftPos;
             double d1 = y - (double) this.topPos;
@@ -255,6 +353,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     private boolean canScroll() {
+        if (menu.isFluidView()) return menu.getClientFluids().size() > 54;
         return slots > 54;
     }
 

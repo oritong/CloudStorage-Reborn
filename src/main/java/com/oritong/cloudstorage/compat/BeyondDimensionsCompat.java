@@ -2,6 +2,7 @@ package com.oritong.cloudstorage.compat;
 
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.misc.CloudIndex;
+import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import com.oritong.cloudstorage.world.CSWorldData;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -15,6 +16,7 @@ import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
@@ -41,10 +43,11 @@ public final class BeyondDimensionsCompat {
                 Class<?> net = Class.forName(API_PACKAGE + "api.dimensionnet.DimensionsNet");
                 Class<?> storage = Class.forName(API_PACKAGE + "api.dimensionnet.UnifiedStorage");
                 Class<?> handler = Class.forName(API_PACKAGE + "api.capability.helper.unordered.ItemUnifiedStorageHandler");
+                Class<?> fluidHandler = Class.forName(API_PACKAGE + "api.capability.helper.unordered.FluidUnifiedStorageHandler");
                 Class<?> unordered = Class.forName(API_PACKAGE + "api.storage.handler.impl.AbstractUnorderedStackHandler");
                 Class<?> menu = Class.forName(API_PACKAGE + "common.menu.DimensionsNetMenu");
                 api = new Api(net.getMethod("getPrimaryNetFromPlayer", Player.class), net.getMethod("getOwner"),
-                        net.getMethod("getUnifiedStorage"), handler.getConstructor(storage),
+                        net.getMethod("getUnifiedStorage"), handler.getConstructor(storage), fluidHandler.getConstructor(storage),
                         menu.getConstructor(MenuType.class, int.class, Inventory.class, unordered));
             } catch (ReflectiveOperationException | LinkageError e) {
                 disable(e);
@@ -54,7 +57,7 @@ public final class BeyondDimensionsCompat {
     }
 
     private static void disable(Throwable error) {
-        if (!failed) CloudStorage.LOGGER.warn("Beyond Dimensions integration failed; keeping remaining items in cloud storage", error);
+        if (!failed) CloudStorage.LOGGER.warn("Beyond Dimensions integration failed; keeping remaining contents in cloud storage", error);
         failed = true;
     }
 
@@ -67,7 +70,8 @@ public final class BeyondDimensionsCompat {
             // Membership of someone else's network is not consent to move a personal inventory there.
             if (net == null || !player.getUUID().equals(bridge.owner.invoke(net))) return null;
             Object storage = bridge.storage.invoke(net);
-            return new Target(net, storage, (IItemHandler) bridge.handler.newInstance(storage));
+            return new Target(net, storage, (IItemHandler) bridge.handler.newInstance(storage),
+                    (IFluidHandler) bridge.fluidHandler.newInstance(storage));
         } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
             disable(e);
             return null;
@@ -103,7 +107,26 @@ public final class BeyondDimensionsCompat {
                 data.setDirty();
                 transfer(cloud.getContainer(), target.items);
             }
+            if (cloud.getFluids().storedAmount() > 0) {
+                data.setDirty();
+                transferFluids(cloud.getFluids(), target.fluids);
+            }
         }
+    }
+
+    public static long transferFluids(CloudFluidStorage source, IFluidHandler destination) {
+        long moved = 0;
+        for (var entry : source.snapshot()) {
+            // Bound work per scan even for clouds holding more than Integer.MAX_VALUE mB.
+            int offered = (int) Math.min(Integer.MAX_VALUE, entry.amount());
+            int accepted = destination.fill(entry.fluid().copyWithAmount(offered), IFluidHandler.FluidAction.EXECUTE);
+            if (accepted < 0 || accepted > offered) throw new IllegalStateException("Beyond Dimensions accepted an invalid fluid amount");
+            if (accepted > 0) {
+                source.drain(entry.fluid().copyWithAmount(accepted), IFluidHandler.FluidAction.EXECUTE);
+                moved += accepted;
+            }
+        }
+        return moved;
     }
 
     /** Returns null for ordinary cloud storage fallback, including a full network's remaining items. */
@@ -116,7 +139,7 @@ public final class BeyondDimensionsCompat {
             CSWorldData data = CSWorldData.get(player.level());
             if (data == null) return null;
             transferClouds(player, data, target);
-            if (!cloud.getContainer().isEmpty()) return null;
+            if (!cloud.getContainer().isEmpty() || cloud.getFluids().storedAmount() > 0) return null;
             MenuType<?> type = BuiltInRegistries.MENU.get(ResourceLocation.fromNamespaceAndPath("beyonddimensions", "dimensions_net_menu"));
             if (type == null) throw new IllegalStateException("Beyond Dimensions storage menu is not registered");
             AbstractContainerMenu menu = (AbstractContainerMenu) api.menu.newInstance(type, id, inventory, target.storage);
@@ -166,10 +189,10 @@ public final class BeyondDimensionsCompat {
         failed = false;
     }
 
-    private record Api(Method primary, Method owner, Method storage, Constructor<?> handler, Constructor<?> menu) {
+    private record Api(Method primary, Method owner, Method storage, Constructor<?> handler, Constructor<?> fluidHandler, Constructor<?> menu) {
     }
 
-    private record Target(Object net, Object storage, IItemHandler items) {
+    private record Target(Object net, Object storage, IItemHandler items, IFluidHandler fluids) {
     }
 
     private record OpenMenu(AbstractContainerMenu menu, Object net) {

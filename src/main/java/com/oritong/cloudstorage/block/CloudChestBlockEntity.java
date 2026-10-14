@@ -129,7 +129,7 @@ public class CloudChestBlockEntity extends AbstractCloudChestBlockEntity {
                     AbstractContainerMenu linked = com.oritong.cloudstorage.compat.BeyondDimensionsCompat.createMenu(i, playerInventory, cloudIndex);
                     if (linked != null) return linked;
                 }
-                return new CloudChestMenu(i, playerInventory, cloudIndex.getContainer());
+                return new CloudChestMenu(i, playerInventory, cloudIndex, data);
             }
         }
         return null;

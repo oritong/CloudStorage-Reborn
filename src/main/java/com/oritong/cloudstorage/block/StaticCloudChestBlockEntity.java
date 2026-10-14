@@ -60,7 +60,7 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
         if (data != null && this.hasBalloonFor(player)) {
             CloudIndex cloudIndex = data.getPublicCloud(this.getBalloonFor(player));
             if (cloudIndex != null && cloudIndex.getContainerSize() > 0) {
-                return new CloudChestMenu(i, playerInventory, cloudIndex.getContainer());
+                return new CloudChestMenu(i, playerInventory, cloudIndex, data);
             }
         }
         return null;

@@ -2,6 +2,10 @@ package com.oritong.cloudstorage.inventory;
 
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.network.MessageScrollCloudChest;
+import com.oritong.cloudstorage.network.MessageCloudFluidAction;
+import com.oritong.cloudstorage.network.MessageCloudFluids;
+import com.oritong.cloudstorage.misc.CloudIndex;
+import com.oritong.cloudstorage.world.CSWorldData;
 import com.google.common.collect.Lists;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
@@ -14,6 +18,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -31,6 +38,17 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final Map<ItemStack, Integer> restoreFromAfterSearch = new HashMap<>();
     public String currentSearch = "";
     private SearchSnapshot pendingClientSearch;
+    private final Player owner;
+    private CloudFluidStorage fluidStorage;
+    private Runnable fluidChanged = () -> { };
+    private boolean fluidView;
+    private long sentFluidRevision = -1;
+    private long sentFluidCapacity = -1;
+    private long fluidRevision = -1;
+    private long fluidCapacity;
+    private final List<CloudFluidStorage.Entry> clientFluids = new ArrayList<>();
+    private final List<CloudFluidStorage.Entry> pendingFluids = new ArrayList<>();
+    private long pendingFluidRevision = -1;
 
     public CloudChestMenu(int id, Inventory playerInv) {
         this(id, playerInv, new SimpleContainer(CloudStorage.PROXY.getVisibleCloudSlots()));
@@ -38,6 +56,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     public CloudChestMenu(int id, Inventory playerInv, Container containerIn) {
         super(CSMenuRegistry.CLOUD_CHEST_MENU.get(), id);
+        this.owner = playerInv.player;
         this.container = containerIn;
         containerIn.startOpen(playerInv.player);
         int clampedSize = Math.min(containerIn.getContainerSize(), 54);
@@ -60,6 +79,76 @@ public class CloudChestMenu extends AbstractContainerMenu {
         }
         CloudStorage.PROXY.setVisibleCloudSlots(containerIn.getContainerSize());
         scrollTo(0.0F, false);
+    }
+
+    public CloudChestMenu(int id, Inventory playerInv, CloudIndex cloud, CSWorldData data) {
+        this(id, playerInv, cloud.getContainer());
+        fluidStorage = cloud.getFluids();
+        fluidChanged = data::setDirty;
+    }
+
+    public boolean isFluidView() { return fluidView; }
+    public void setFluidView(boolean view) { fluidView = view; }
+    public long getFluidRevision() { return fluidRevision; }
+    public long getFluidCapacity() { return fluidCapacity; }
+    public List<CloudFluidStorage.Entry> getClientFluids() { return Collections.unmodifiableList(clientFluids); }
+
+    public void receiveFluids(MessageCloudFluids message) {
+        if (message.offset() == 0) {
+            pendingFluids.clear();
+            pendingFluidRevision = message.revision();
+        }
+        if (pendingFluidRevision != message.revision() || pendingFluids.size() != message.offset()) return;
+        pendingFluids.addAll(message.entries());
+        if (pendingFluids.size() == message.total()) {
+            clientFluids.clear();
+            clientFluids.addAll(pendingFluids);
+            fluidRevision = message.revision();
+            fluidCapacity = message.capacity();
+        }
+    }
+
+    @Override public void broadcastChanges() {
+        super.broadcastChanges();
+        if (fluidStorage != null && owner instanceof ServerPlayer player && player.containerMenu == this
+                && (sentFluidRevision != fluidStorage.revision() || sentFluidCapacity != fluidStorage.capacity())) {
+            MessageCloudFluids.send(player, containerId, fluidStorage);
+            sentFluidRevision = fluidStorage.revision();
+            sentFluidCapacity = fluidStorage.capacity();
+        }
+    }
+
+    public void handleFluidAction(Player player, MessageCloudFluidAction message) {
+        if (player != owner || player.containerMenu != this || !stillValid(player)
+                || player.level().isClientSide() || fluidStorage == null || message.containerId() != containerId) return;
+        if (message.action() == MessageCloudFluidAction.ITEMS || message.action() == MessageCloudFluidAction.FLUIDS) {
+            fluidView = message.action() == MessageCloudFluidAction.FLUIDS;
+            if (fluidView) {
+                search(player, "");
+                sentFluidRevision = -1;
+                broadcastChanges();
+            }
+            return;
+        }
+        if (!fluidView || (message.action() != MessageCloudFluidAction.DEPOSIT && message.action() != MessageCloudFluidAction.WITHDRAW)) return;
+        if (message.revision() != fluidStorage.revision()) {
+            sentFluidRevision = -1;
+            broadcastChanges();
+            return;
+        }
+        FluidStack selected = FluidStack.EMPTY;
+        if (message.action() == MessageCloudFluidAction.WITHDRAW) {
+            if (message.entry() < 0 || message.entry() >= fluidStorage.snapshot().size()) return;
+            selected = fluidStorage.getFluidInTank(message.entry()).copyWithAmount(Integer.MAX_VALUE);
+        }
+        if (CloudFluidContainerInteraction.interact(player, this, fluidStorage, selected,
+                message.action() == MessageCloudFluidAction.DEPOSIT)) fluidChanged.run();
+        broadcastChanges();
+    }
+
+    @Override public void clicked(int slotId, int button, ClickType type, Player player) {
+        if (fluidView && slotId >= 0 && slotId < slots.size() && slots.get(slotId) instanceof SlotCloudChest) return;
+        super.clicked(slotId, button, type, player);
     }
 
     public static boolean matchesSearch(Player player, String search, ItemStack stack) {
@@ -123,6 +212,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     public ItemStack quickMoveStack(Player player, int slotIndex) {
+        if (fluidView || slotIndex < 0 || slotIndex >= slots.size()) return ItemStack.EMPTY;
         ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.slots.get(slotIndex);
         int clampedSize = Math.min(this.container.getContainerSize(), 54);

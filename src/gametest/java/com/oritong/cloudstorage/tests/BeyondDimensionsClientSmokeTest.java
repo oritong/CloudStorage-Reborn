@@ -30,6 +30,9 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
+import net.minecraft.world.level.material.Fluids;
 
 import java.nio.file.Files;
 
@@ -77,6 +80,7 @@ public final class BeyondDimensionsClientSmokeTest {
             ItemStack diamonds = new ItemStack(Items.DIAMOND, 12);
             diamonds.set(DataComponents.CUSTOM_NAME, Component.literal("Cloud transfer test"));
             cloud.getContainer().setItem(3, diamonds);
+            cloud.getFluids().fill(new FluidStack(Fluids.WATER, 1000), FluidAction.EXECUTE);
             CSWorldData.get(level).addPrivateCloud(cloud);
             BlockPos pos = player.blockPosition().above(3);
             level.setBlockAndUpdate(pos, CSBlockRegistry.CLOUD_CHEST.get().defaultBlockState());
@@ -88,7 +92,7 @@ public final class BeyondDimensionsClientSmokeTest {
             CloudStorage.CONFIG.beyondDimensionsStorage.set(true);
             CloudStorage.sendNonLocal(new MessageOpenCloudChest(27), player);
             player.openMenu(chest.getMenuProvider());
-            if (!cloud.getContainer().isEmpty() || destination.getStackInSlot(0).getCount() != 12)
+            if (!cloud.getContainer().isEmpty() || cloud.getFluids().storedAmount() != 0 || destination.getStackInSlot(0).getCount() != 12)
                 throw new AssertionError("Cloud items did not enter the personal network before opening its screen");
             CloudStorage.CONFIG.beyondDimensionsTransferIntervalSeconds.set(5);
             phase = 7;
@@ -162,9 +166,13 @@ public final class BeyondDimensionsClientSmokeTest {
             if ((long) amount.getClass().getMethod("amount").invoke(amount) != 12L) return;
             Object gold = storage.getClass().getMethod("getStackByKey", keyApi).invoke(storage, key.getConstructor(ItemStack.class).newInstance(new ItemStack(Items.GOLD_INGOT)));
             if ((long) gold.getClass().getMethod("amount").invoke(gold) != 7L) return;
+            Class<?> fluidKey = Class.forName("com.wintercogs.beyonddimensions.api.storage.key.impl.FluidStackKey");
+            Object water = storage.getClass().getMethod("getStackByKey", keyApi).invoke(storage,
+                    fluidKey.getConstructor(FluidStack.class).newInstance(new FluidStack(Fluids.WATER, 1)));
+            if ((long) water.getClass().getMethod("amount").invoke(water) != 1000L) return;
             if (++frames < 40) return;
             capture(client, "cloud-beyond-smoke.png");
-            CloudStorage.LOGGER.info("BEYOND_DIMENSIONS_SCREEN_PASSED: transferred items reached the client's dimensional storage screen");
+            CloudStorage.LOGGER.info("BEYOND_DIMENSIONS_SCREEN_PASSED: transferred items and fluids reached the client's dimensional storage screen");
             frames = 0;
             phase = 3;
         } else if (phase == 9 && intervalChecked) {

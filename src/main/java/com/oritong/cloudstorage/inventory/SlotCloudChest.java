@@ -3,6 +3,7 @@ package com.oritong.cloudstorage.inventory;
 import net.minecraft.world.Container;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.player.Player;
 
 public class SlotCloudChest extends Slot {
 
@@ -57,6 +58,10 @@ public class SlotCloudChest extends Slot {
     public boolean isGray() {
         return isGray;
     }
+
+    @Override public boolean isActive() { return !menu.isFluidView(); }
+    @Override public boolean mayPlace(ItemStack stack) { return !menu.isFluidView() && super.mayPlace(stack); }
+    @Override public boolean mayPickup(Player player) { return !menu.isFluidView() && super.mayPickup(player); }
 
     public void setGray(boolean isGray){
         this.isGray = isGray;
