@@ -60,6 +60,9 @@ dependencies {
     if (project.hasProperty('mouseTweaksTestJar')) {
         runtimeOnly files(project.property('mouseTweaksTestJar'))
     }
+    if (project.hasProperty('mekanismTestJar')) {
+        runtimeOnly files(project.property('mekanismTestJar'))
+    }
     if (project.hasProperty('modernIndustrializationTestMods')) {
         runtimeOnly fileTree(dir: project.property('modernIndustrializationTestMods'),
                 includes: ['*Modern-Industrialization*.jar', 'guideme-*.jar', '*GrandPower*.jar'])

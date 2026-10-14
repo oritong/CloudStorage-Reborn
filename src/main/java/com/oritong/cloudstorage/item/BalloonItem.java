@@ -277,8 +277,17 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
                 BlockEntity te = level.getBlockEntity(blockpos);
                 BalloonCargoEntity cargo = BalloonCargoEntity.createCargo(level, blockpos, blockstate,
                         te == null ? null : te.saveWithoutMetadata(level.registryAccess()));
-                if (fluidTank) cargo.copyTankData(tank);
-                else {
+                if (fluidTank) {
+                    cargo.copyTankData(tank);
+                    var items = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, blockpos, null);
+                    if (items == null) {
+                        for (var side : Direction.values()) {
+                            items = level.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, blockpos, side);
+                            if (items != null) break;
+                        }
+                    }
+                    if (items != null) cargo.copyTankItems(items);
+                } else {
                     cargo.copyContainerData(((Container) te));
                     ((Container) te).clearContent();
                 }

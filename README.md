@@ -28,7 +28,7 @@
 
 流体空间需要单独上传储罐。**每上传一个储罐，增加 1 个流体种类额度，并增加该储罐实际大小的容量。** 多种流体共用总容量；带有不同数据的流体会分别占用种类额度。箱子只增加物品槽位，普通箱子是 27 格。只上传储罐、没有物品空间时，也能打开云箱存取流体。
 
-目前已支持 Modern Industrialization 的铁、青铜、钢、铝、不锈钢、钛和量子储罐。给储罐绑上气球，像上传箱子一样送上天即可；罐内已有的流体也会一起存入。容量读取储罐的实际数值，量子储罐的大容量和已有流体不会被普通整数范围截断。MI 是可选联动，不需要为了使用云存储安装它。
+目前已支持 Modern Industrialization 的铁、青铜、钢、铝、不锈钢、钛和量子储罐，以及 Mekanism 的基础、高级、精英和终极流体储罐。给储罐绑上气球，像上传箱子一样送上天即可；罐内已有的流体也会一起存入。容量读取储罐的实际数值，量子储罐的大容量和已有流体不会被普通整数范围截断。MI 和 Mekanism 都是可选联动，不需要为了使用云存储安装它们。
 
 流体功能默认开启，可在 `config/cloudstorage_reborn-common.toml` 中关闭：
 
@@ -39,7 +39,7 @@ fluid_storage = true
 
 改成 `false` 后，储罐上传、终端流体存取和向超越维度转存流体都会停用，已上传的容量、种类额度和流体数据会保留。私人流体库存按玩家 UUID 和气球颜色区分，静电库存按公共颜色区分，随世界保存。现阶段通过 GUI 存取，还没有流体管道接口。
 
-可上传储罐由方块标签 **`cloudstorage:fluid_storage`** 决定。数据包可通过 `data/cloudstorage/tags/block/fluid_storage.json` 追加其他模组的储罐；方块需要提供标准流体能力，目前支持空罐或只含一种流体的储罐。内置的七种 MI 储罐都是可选标签项，不装 MI 也能正常加载。
+可上传储罐由方块标签 **`cloudstorage:fluid_storage`** 决定。数据包可通过 `data/cloudstorage/tags/block/fluid_storage.json` 追加其他模组的储罐；方块需要提供标准流体能力，目前支持空罐或只含一种流体的储罐。内置的七种 MI 储罐和四种 Mekanism 储罐都是可选标签项，不装对应模组也能正常加载。Mekanism 储罐上传时，输入/输出槽中的物品会随货物保存；云库存没有物品槽位时，多出的物品会退回玩家背包或掉落在脚边。
 
 之前测试版由箱子赠送的流体容量不再生效。已有流体会保留，可以取出；需要上传储罐获得容量和种类额度后才能继续正常存入。
 
@@ -103,11 +103,11 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 终端 GUI 的开发检查使用 `gradlew.bat -PfluidSmokeTest runClient`，会通过实际点击验证物品和流体存取、叠放空桶、混合搜索、滚动和 Shift 排列锁定，保存截图后退出。
 
-储罐联动测试可用 `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=本地模组目录 runGameTestServer` 加载 MI 及其依赖，验证七级储罐的实际上传和存档读写。`-PtankSmokeTest runClient` 会检查没有物品槽位的流体终端、桶的实际存取和配置开关同步。
+储罐联动测试可用 `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=本地模组目录 -PmekanismTestJar=本地Mekanism的JAR路径 runGameTestServer` 加载 MI 和 Mekanism，验证各级储罐的实际上传和存档读写。`-PtankSmokeTest runClient` 会检查没有物品槽位的流体终端、桶的实际存取和配置开关同步。
 
 Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -PmouseTweaksSmokeTest runClient`，会通过它的实际自定义界面处理器验证坐标识别、双向快速转移和连续请求。编译使用仓库内的独立 API 接口源码，运行时由 Mouse Tweaks 提供接口，成品不包含 Mouse Tweaks 或它的接口类。
 
-目前通过了编译、17 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、MI 七级储罐上传、量子容量、流体保存与容器存取、配置关闭后保留数据、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前通过了编译、18 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、MI 七级储罐上传、Mekanism 四级储罐上传、量子容量、流体保存与容器存取、配置关闭后保留数据、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -139,7 +139,7 @@ Hold **Shift** to keep existing entries in place while their counts update. Depl
 
 Fluid space comes from uploaded tanks. **Each tank adds one fluid type slot and its actual capacity.** All stored fluids share the total capacity; fluids with different data count as separate types. Chests add item slots only: 27 for a regular chest. You can open a Cloud Chest with just fluid space, even if you have never uploaded an item chest.
 
-Modern Industrialization's iron, bronze, steel, aluminum, stainless steel, titanium and quantum tanks are supported. Tie a balloon to a tank and send it up just like a chest. Any fluid inside comes with it. Capacity is read from the actual tank, including quantum capacities and contents beyond the ordinary integer range. MI is optional.
+Modern Industrialization's iron, bronze, steel, aluminum, stainless steel, titanium and quantum tanks, plus Mekanism's basic, advanced, elite and ultimate fluid tanks, are supported. Tie a balloon to a tank and send it up just like a chest. Any fluid inside comes with it. Capacity is read from the actual tank, including quantum capacities and contents beyond the ordinary integer range. MI and Mekanism are optional integrations.
 
 Fluid storage is enabled by default. Its switch is in `config/cloudstorage_reborn-common.toml`:
 
@@ -150,7 +150,7 @@ fluid_storage = true
 
 Setting it to `false` disables tank uploads, terminal fluid transfers and fluid transfers to Beyond Dimensions. Uploaded capacity, type slots and saved fluids are preserved. Private fluid storage follows the player UUID and balloon color; static storage follows its shared color. Both are saved with the world. Transfers currently use the GUI; fluid pipes are not connected yet.
 
-The block tag **`cloudstorage:fluid_storage`** controls which tanks can be uploaded. Data packs can add other tanks through `data/cloudstorage/tags/block/fluid_storage.json`. A tank must expose a standard fluid capability; empty tanks and tanks containing a single fluid type are supported. The seven built-in MI entries are optional, so the tag loads without MI installed.
+The block tag **`cloudstorage:fluid_storage`** controls which tanks can be uploaded. Data packs can add other tanks through `data/cloudstorage/tags/block/fluid_storage.json`. A tank must expose a standard fluid capability; empty tanks and tanks containing a single fluid type are supported. The seven MI entries and four Mekanism entries are optional, so the tag loads without either mod installed. Items in Mekanism tank input/output slots travel with the upload; when a tank-only cloud has no item slots, excess items return to the owner or drop nearby.
 
 Fluid capacity previously granted by chests in test builds is no longer available. Existing fluids are preserved and can be withdrawn. Upload tanks to gain the capacity and type slots needed for further deposits.
 
@@ -214,11 +214,11 @@ To check the integration, supply `-PbeyondDimensionsTestJar=/path/to/local.jar` 
 
 Run `./gradlew -PfluidSmokeTest runClient` for the terminal GUI check. It performs real clicks to check item and fluid transfers, stacked buckets, mixed searches, scrolling and Shift-locked ordering, saves screenshots, then exits.
 
-Use `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=/path/to/mods runGameTestServer` to load local MI dependencies and check actual uploads and saves for all seven tank tiers. `-PtankSmokeTest runClient` checks a terminal with zero item slots, actual bucket transfers and configuration synchronization.
+Use `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=/path/to/mods -PmekanismTestJar=/path/to/Mekanism.jar runGameTestServer` to load local MI and Mekanism dependencies and check actual uploads and saves for all supported tank tiers. `-PtankSmokeTest runClient` checks a terminal with zero item slots, actual bucket transfers and configuration synchronization.
 
 For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -PmouseTweaksSmokeTest runClient`. It checks coordinate mapping, rapid requests and transfers in both directions through the actual custom screen handler. The compile-only API source is included in the repository; the runtime interface comes from Mouse Tweaks. Neither Mouse Tweaks nor its interface class is bundled into the mod JAR.
 
-The port passes compilation, seventeen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, all seven MI tank tiers, quantum capacity, fluid persistence and container transfers, data preservation while disabled, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+The port passes compilation, eighteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, all seven MI tank tiers, four Mekanism tank tiers, quantum capacity, fluid persistence and container transfers, data preservation while disabled, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

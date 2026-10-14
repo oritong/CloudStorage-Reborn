@@ -23,6 +23,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -173,16 +174,106 @@ public final class TankUploadTests {
         helper.getLevel().setBlockAndUpdate(pos, iron.defaultBlockState());
         long ironCapacity = ((Number) helper.getLevel().getBlockEntity(pos).getClass().getMethod("getCapacity")
                 .invoke(helper.getLevel().getBlockEntity(pos))).longValue();
-        finish(attach(helper, player, pos, 0xB92345, true));
-        var shared = data.getPublicCloud(0xB92345);
+        int sharedColor = unusedPublicColor(data);
+        finish(attach(helper, player, pos, sharedColor, true));
+        var shared = data.getPublicCloud(sharedColor);
         helper.getLevel().setBlockAndUpdate(pos, CSBlockRegistry.STATIC_CLOUD_CHEST.get().defaultBlockState());
         var chest = (StaticCloudChestBlockEntity) helper.getLevel().getBlockEntity(pos);
-        chest.setBalloonColorFor(null, 0xB92345);
+        chest.setBalloonColorFor(null, sharedColor);
         helper.assertTrue(shared != null && shared.getFluids().capacity() == ironCapacity && shared.getFluids().typeCapacity() == 1
                 && !chest.hasNoInvSpace(player) && chest.getMenu(21, player.getInventory()) instanceof CloudChestMenu,
                 "Static tank upload failed to create an accessible public fluid cloud");
         CloudStorage.LOGGER.info("MI_TANK_UPLOAD_TEST_PASSED: seven tiers, long quantum capacity and contents, in-flight saves, private/static clouds, disabled config");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mekanismTanks(GameTestHelper helper) throws ReflectiveOperationException {
+        if (!ModList.get().isLoaded("mekanism")) { helper.succeed(); return; }
+        var player = player(helper);
+        var pos = helper.absolutePos(new BlockPos(1, 1, 1));
+        var data = CSWorldData.get(helper.getLevel());
+        int color = 0xC93456;
+        String[] tiers = {"basic", "advanced", "elite", "ultimate"};
+        long expectedCapacity = 0;
+        long expectedAmount = 0;
+        int expectedBuckets = 0;
+        for (int i = 0; i < tiers.length; i++) {
+            var block = BuiltInRegistries.BLOCK.get(ResourceLocation.parse("mekanism:" + tiers[i] + "_fluid_tank"));
+            helper.assertTrue(block != Blocks.AIR && block.defaultBlockState().is(CloudTankUpload.TAG), "Mekanism tank missing from upload tag: " + tiers[i]);
+            helper.getLevel().setBlockAndUpdate(pos, block.defaultBlockState());
+            var be = helper.getLevel().getBlockEntity(pos);
+            var handler = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+            helper.assertTrue(handler != null && handler.getTanks() == 1, "Mekanism tank did not expose its standard fluid capability");
+            int capacity = handler.getTankCapacity(0);
+            var empty = CloudTankUpload.capture(helper.getLevel(), pos);
+            helper.assertTrue(empty != null && empty.capacity() == capacity && empty.amount() == 0, "Empty Mekanism tank capacity was lost");
+            var input = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, Direction.UP);
+            int amount = i == 2 ? 0 : input.fill(new FluidStack(i == 1 ? Fluids.LAVA : Fluids.WATER, (i + 1) * 1000), EXECUTE);
+            helper.assertTrue(i == 2 || amount == (i + 1) * 1000, "Mekanism fluid fixture did not fill: " + tiers[i] + ", accepted " + amount);
+            be.getClass().getMethod("setStackInSlot", int.class, ItemStack.class, Direction.class)
+                    .invoke(be, 1, new ItemStack(Items.BUCKET, i + 2), null);
+            if (i == 0) {
+                boolean enabled = CloudStorage.CONFIG.fluidStorage.get();
+                try {
+                    CloudStorage.CONFIG.fluidStorage.set(false);
+                    var stack = ((BalloonItem) CSItemRegistry.BALLOON.get()).createBalloon(color, 0);
+                    helper.assertTrue(!((BalloonItem) stack.getItem()).placeBalloon(helper.getLevel(), stack, pos, Direction.UP, player, false)
+                            && stack.getCount() == 1 && helper.getLevel().getBlockState(pos).is(block), "Disabled Mekanism upload consumed storage");
+                } finally { CloudStorage.CONFIG.fluidStorage.set(enabled); }
+            }
+            var balloon = attach(helper, player, pos, color, false);
+            var cargo = (BalloonCargoEntity) balloon.getChild();
+            var saved = new CompoundTag();
+            cargo.saveWithoutId(saved);
+            var restoredCargo = CSEntityRegistry.BALLOON_CARGO.get().create(helper.getLevel());
+            restoredCargo.load(saved);
+            helper.assertTrue(restoredCargo.getFluidCapacity() == capacity && restoredCargo.getFluidAmount() == amount
+                    && restoredCargo.getContainerItems().stream().filter(stack -> stack.is(Items.BUCKET)).mapToInt(ItemStack::getCount).sum() == i + 2,
+                    "In-flight Mekanism contents or container-slot items failed serialization");
+            finish(balloon);
+            expectedCapacity += capacity;
+            expectedAmount += amount;
+            expectedBuckets += i + 2;
+            var cloud = data.getPrivateCloud(player.getUUID(), color);
+            int droppedBuckets = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(4),
+                    entity -> entity.getItem().is(Items.BUCKET)).stream().mapToInt(entity -> entity.getItem().getCount()).sum();
+            helper.assertTrue(cloud != null && cloud.getContainerSize() == 0 && cloud.getFluids().capacity() == expectedCapacity
+                    && cloud.getFluids().typeCapacity() == i + 1 && cloud.getFluids().storedAmount() == expectedAmount
+                    && droppedBuckets + player.getInventory().countItem(Items.BUCKET) == expectedBuckets && cargo.isRemoved(),
+                    "Mekanism upload lost capacity, fluids or container-slot items: " + tiers[i]);
+            finish(balloon);
+            helper.assertTrue(cloud.getFluids().typeCapacity() == i + 1, "Mekanism tank uploaded twice");
+            balloon.discard();
+        }
+        var cloud = data.getPrivateCloud(player.getUUID(), color);
+        var restored = CSWorldData.load(data.save(new CompoundTag(), helper.getLevel().registryAccess()), helper.getLevel().registryAccess())
+                .getPrivateCloud(player.getUUID(), color);
+        helper.assertTrue(restored.getFluids().capacity() == expectedCapacity && restored.getFluids().typeCapacity() == 4
+                && restored.getFluids().storedAmount() == expectedAmount && cloud.getFluids().snapshot().size() == 2,
+                "Uploaded Mekanism tanks failed the world-save round trip");
+        var basic = BuiltInRegistries.BLOCK.get(ResourceLocation.parse("mekanism:basic_fluid_tank"));
+        helper.getLevel().setBlockAndUpdate(pos, basic.defaultBlockState());
+        var be = helper.getLevel().getBlockEntity(pos);
+        be.getClass().getMethod("setStackInSlot", int.class, ItemStack.class, Direction.class)
+                .invoke(be, 1, new ItemStack(Items.BUCKET, 3), null);
+        int sharedColor = unusedPublicColor(data);
+        data.addPublicCloud(new CloudIndex(player.getUUID(), sharedColor, 27));
+        finish(attach(helper, player, pos, sharedColor, true));
+        var shared = data.getPublicCloud(sharedColor);
+        helper.assertTrue(shared.getFluids().typeCapacity() == 1 && shared.getContainerSize() == 27
+                && shared.getContainer().countItem(Items.BUCKET) == 3, "Static Mekanism tank upload did not preserve container-slot items in existing item storage");
+        var creative = BuiltInRegistries.BLOCK.get(ResourceLocation.parse("mekanism:creative_fluid_tank"));
+        helper.assertTrue(!creative.defaultBlockState().is(CloudTankUpload.TAG), "Creative Mekanism tank was included in the four survival tiers");
+        CloudStorage.LOGGER.info("MEKANISM_TANK_UPLOAD_TEST_PASSED: four tiers, actual capacity, empty/filled tanks, container-slot items, in-flight/world saves, config and static clouds");
+        helper.succeed();
+    }
+
+    private static int unusedPublicColor(CSWorldData data) {
+        int color;
+        do { color = java.util.concurrent.ThreadLocalRandom.current().nextInt(0x1000000); }
+        while (data.getPublicCloud(color) != null);
+        return color;
     }
 
     private static BalloonEntity attach(GameTestHelper helper, Player player, BlockPos pos, int color, boolean charged) {

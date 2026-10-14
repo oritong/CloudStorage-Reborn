@@ -7,6 +7,10 @@
     { "id": "modern_industrialization:aluminum_tank", "required": false },
     { "id": "modern_industrialization:stainless_steel_tank", "required": false },
     { "id": "modern_industrialization:titanium_tank", "required": false },
-    { "id": "modern_industrialization:quantum_tank", "required": false }
+    { "id": "modern_industrialization:quantum_tank", "required": false },
+    { "id": "mekanism:basic_fluid_tank", "required": false },
+    { "id": "mekanism:advanced_fluid_tank", "required": false },
+    { "id": "mekanism:elite_fluid_tank", "required": false },
+    { "id": "mekanism:ultimate_fluid_tank", "required": false }
   ]
 }

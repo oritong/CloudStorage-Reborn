@@ -318,6 +318,14 @@ public class BalloonCargoEntity extends Entity {
         fluidAmount = tank.amount();
     }
 
+    /** Tanks may also have container input/output slots; these do not grant item space. */
+    public void copyTankItems(net.neoforged.neoforge.items.IItemHandler items) {
+        for (int i = 0; i < items.getSlots(); i++) {
+            var stack = items.getStackInSlot(i);
+            if (!stack.isEmpty()) containerItems.add(stack.copy());
+        }
+    }
+
     public long getFluidCapacity() { return fluidCapacity; }
     public long getFluidAmount() { return fluidAmount; }
     public FluidStack getStoredFluid() { return storedFluid; }

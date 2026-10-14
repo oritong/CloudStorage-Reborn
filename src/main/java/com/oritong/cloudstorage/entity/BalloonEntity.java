@@ -226,6 +226,14 @@ public class BalloonEntity extends Entity {
                                 if (isCharged()) data.addPublicCloud(cloud);
                                 else data.addPrivateCloud(cloud);
                             }
+                            Player owner = level().getPlayerByUUID(cargo.getPlayerUUID());
+                            for (ItemStack stack : cargo.getContainerItems()) {
+                                ItemStack remainder = cloud.getContainer().addItem(stack.copy());
+                                if (!remainder.isEmpty()) {
+                                    if (owner != null) owner.getInventory().placeItemBackInInventory(remainder);
+                                    else cargo.spawnAtLocation(remainder, 0.5F);
+                                }
+                            }
                             data.setDirty();
                             cargo.discard();
                             if (level().getPlayerByUUID(cargo.getPlayerUUID()) instanceof ServerPlayer player)
