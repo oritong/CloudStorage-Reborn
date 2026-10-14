@@ -76,21 +76,40 @@ public final class FluidClientSmokeTest {
         var player = event.getServer().getPlayerList().getPlayers().getFirst();
         if (phase == 1) {
             CloudStorage.CONFIG.beyondDimensionsStorage.set(false);
-            cloud = new CloudIndex(player.getUUID(), 0xAB4D63, 90);
-            cloud.getContainer().setItem(80, new ItemStack(Items.DIAMOND, 6));
-            cloud.getContainer().setItem(60, new ItemStack(Items.GOLD_INGOT, 9));
-            cloud.getFluids().fill(new FluidStack(Fluids.WATER, 6000), EXECUTE);
-            cloud.getFluids().fill(new FluidStack(Fluids.LAVA, 2500), EXECUTE);
+            CloudStorage.CONFIG.fluidStorage.set(true);
+            boolean tankOnly = Boolean.getBoolean("cloudstorage_reborn.tankSmokeTest");
+            cloud = new CloudIndex(player.getUUID(), 0xAB4D63, tankOnly ? 0 : 90);
+            if (tankOnly) {
+                cloud.addFluidStorage(4000);
+                cloud.getFluids().fill(new FluidStack(Fluids.WATER, 1000), EXECUTE);
+            } else {
+                for (int i = 0; i < 90; i++) cloud.addFluidStorage(1000);
+                cloud.getContainer().setItem(80, new ItemStack(Items.DIAMOND, 6));
+                cloud.getContainer().setItem(60, new ItemStack(Items.GOLD_INGOT, 9));
+                cloud.getFluids().fill(new FluidStack(Fluids.WATER, 6000), EXECUTE);
+                cloud.getFluids().fill(new FluidStack(Fluids.LAVA, 2500), EXECUTE);
+            }
             CSWorldData.get(player.level()).addPrivateCloud(cloud);
             BlockPos pos = player.blockPosition().above(3);
             player.serverLevel().setBlockAndUpdate(pos, CSBlockRegistry.CLOUD_CHEST.get().defaultBlockState());
             var chest = (CloudChestBlockEntity) player.level().getBlockEntity(pos);
             chest.setBalloonColorFor(player, cloud.getBalloonColor());
-            CloudStorage.sendNonLocal(new MessageOpenCloudChest(90), player);
+            CloudStorage.sendNonLocal(new MessageOpenCloudChest(cloud.getContainerSize()), player);
             player.openMenu(chest.getMenuProvider());
             player.containerMenu.setCarried(new ItemStack(Items.WATER_BUCKET));
             player.containerMenu.broadcastChanges();
-            phase = 2;
+            phase = tankOnly ? 200 : 2;
+        } else if (phase == 201 && cloud.getFluids().storedAmount() == 2000 && player.containerMenu.getCarried().is(Items.BUCKET)) {
+            phase = 202;
+        } else if (phase == 203 && cloud.getFluids().storedAmount() == 1000 && player.containerMenu.getCarried().is(Items.WATER_BUCKET)) {
+            CloudStorage.CONFIG.fluidStorage.set(false);
+            player.containerMenu.broadcastChanges();
+            phase = 204;
+        } else if (phase == 205) {
+            if (cloud.getFluids().storedAmount() != 1000) throw new AssertionError("Disabling storage deleted tank contents");
+            CloudStorage.CONFIG.fluidStorage.set(true);
+            player.containerMenu.broadcastChanges();
+            phase = 206;
         } else if (phase == 3 && cloud.getFluids().storedAmount() == 9500 && player.containerMenu.getCarried().is(Items.BUCKET)) {
             phase = 4;
         } else if (phase == 5 && cloud.getFluids().storedAmount() == 8500 && player.containerMenu.getCarried().is(Items.WATER_BUCKET)) {
@@ -170,6 +189,10 @@ public final class FluidClientSmokeTest {
         var client = Minecraft.getInstance();
         if (!(client.screen instanceof CloudChestScreen screen)) return;
         var menu = screen.getMenu();
+        if (Boolean.getBoolean("cloudstorage_reborn.tankSmokeTest")) {
+            tankFrame(client, screen);
+            return;
+        }
         int left = (screen.width - 195) / 2;
         int top = (screen.height - 222) / 2;
         if (phase == 2 && menu.getFluidCapacity() == 90000 && menu.getTerminalEntries().size() == 4 && menu.getCarried().is(Items.WATER_BUCKET) && ++frames > 20) {
@@ -337,6 +360,35 @@ public final class FluidClientSmokeTest {
             }
             capture(client, "cloud-mousetweaks-quick-move.png");
             CloudStorage.LOGGER.info("MOUSE_TWEAKS_CLIENT_SMOKE_TEST_PASSED: actual custom handler, virtual coordinates, eight Shift withdrawal/deposit cycles without stale placeholders, duplicate protection and ignored fluids");
+            client.stop();
+        }
+    }
+
+    private static void tankFrame(Minecraft client, CloudChestScreen screen) throws Exception {
+        var menu = screen.getMenu();
+        if (phase == 200 && menu.getItemCapacity() == 0 && menu.getFluidCapacity() == 4000
+                && menu.getFluidTypeCapacity() == 1 && menu.getTerminalEntries().size() == 1
+                && menu.getCarried().is(Items.WATER_BUCKET) && ++frames > 20) {
+            if (water(menu) != 1000 || screen.getContainerTooltip(null).size() != 2)
+                throw new AssertionError("Tank-only terminal failed its initial synchronization");
+            frames = 0;
+            phase = 201;
+            click(screen, 1, 1);
+        } else if (phase == 202 && water(menu) == 2000 && menu.getCarried().is(Items.BUCKET) && ++frames > 20) {
+            frames = 0;
+            phase = 203;
+            click(screen, find(screen, CloudTerminalEntry::isFluid), 0);
+        } else if (phase == 204 && menu.getTerminalEntries().isEmpty() && menu.getFluidCapacity() == 0
+                && menu.getFluidTypeCapacity() == 0 && ++frames > 20) {
+            if (!screen.getDisplayedEntries().isEmpty() || !screen.getContainerTooltip(null).isEmpty())
+                throw new AssertionError("Disabling fluid storage left active GUI entries or controls");
+            frames = 0;
+            phase = 205;
+        } else if (phase == 206 && menu.getFluidCapacity() == 4000 && menu.getFluidTypeCapacity() == 1
+                && menu.getTerminalEntries().size() == 1 && water(menu) == 1000 && ++frames > 20) {
+            capture(client, "cloud-tank-only-terminal.png");
+            CloudStorage.LOGGER.info("TANK_ONLY_CLIENT_SMOKE_TEST_PASSED: zero item slots, capacity/type synchronization, actual bucket transfers and config toggling without data loss");
+            phase = 207;
             client.stop();
         }
     }

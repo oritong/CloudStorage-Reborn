@@ -15,7 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.ArrayList;
 import java.util.List;
 
-public record MessageCloudTerminalContents(int containerId, long revision, int itemCapacity, long fluidCapacity,
+public record MessageCloudTerminalContents(int containerId, long revision, int itemCapacity, long fluidCapacity, int fluidTypeCapacity,
                                           int offset, int total, List<CloudTerminalEntry> entries) implements CustomPacketPayload {
     public static final int BATCH_SIZE = 32;
     public static final Type<MessageCloudTerminalContents> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(CloudStorage.MODID, "cloud_terminal_contents"));
@@ -24,6 +24,7 @@ public record MessageCloudTerminalContents(int containerId, long revision, int i
         buf.writeVarLong(message.revision);
         buf.writeVarInt(message.itemCapacity);
         buf.writeVarLong(message.fluidCapacity);
+        buf.writeVarInt(message.fluidTypeCapacity);
         buf.writeVarInt(message.offset);
         buf.writeVarInt(message.total);
         buf.writeVarInt(message.entries.size());
@@ -40,17 +41,19 @@ public record MessageCloudTerminalContents(int containerId, long revision, int i
         long revision = buf.readVarLong();
         int itemCapacity = buf.readVarInt();
         long fluidCapacity = buf.readVarLong();
+        int fluidTypeCapacity = buf.readVarInt();
+        long fluidSources = 256L + fluidTypeCapacity; // Preserve access to legacy fluids without uploaded tanks.
         int offset = buf.readVarInt();
         int total = buf.readVarInt();
         int size = buf.readVarInt();
-        if (itemCapacity < 0 || fluidCapacity < 0 || total < 0 || (long) total > (long) itemCapacity + 256
+        if (itemCapacity < 0 || fluidCapacity < 0 || fluidTypeCapacity < 0 || total < 0 || (long) total > (long) itemCapacity + fluidSources
                 || offset < 0 || size < 0 || size > BATCH_SIZE || (long) offset + size > total)
             throw new IllegalArgumentException("Invalid mixed cloud snapshot");
         List<CloudTerminalEntry> entries = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             boolean fluid = buf.readBoolean();
             int source = buf.readVarInt();
-            if (source < 0 || source >= (fluid ? 256 : itemCapacity)) throw new IllegalArgumentException("Invalid cloud source");
+            if (source < 0 || source >= (fluid ? fluidSources : itemCapacity)) throw new IllegalArgumentException("Invalid cloud source");
             if (fluid) {
                 FluidStack stack = FluidStack.STREAM_CODEC.decode(buf);
                 long amount = buf.readVarLong();
@@ -58,7 +61,7 @@ public record MessageCloudTerminalContents(int containerId, long revision, int i
                 entries.add(new CloudTerminalEntry(source, ItemStack.EMPTY, stack, amount));
             } else entries.add(CloudTerminalEntry.item(source, ItemStack.STREAM_CODEC.decode(buf)));
         }
-        return new MessageCloudTerminalContents(id, revision, itemCapacity, fluidCapacity, offset, total, entries);
+        return new MessageCloudTerminalContents(id, revision, itemCapacity, fluidCapacity, fluidTypeCapacity, offset, total, entries);
     });
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
@@ -66,10 +69,10 @@ public record MessageCloudTerminalContents(int containerId, long revision, int i
     public static void send(ServerPlayer player, CloudChestMenu menu, List<CloudTerminalEntry> entries) {
         int total = entries.size();
         if (total == 0) CloudStorage.sendNonLocal(new MessageCloudTerminalContents(menu.containerId, menu.getTerminalRevision(),
-                menu.getItemCapacity(), menu.getFluidCapacity(), 0, 0, List.of()), player);
+                menu.getItemCapacity(), menu.getFluidCapacity(), menu.getFluidTypeCapacity(), 0, 0, List.of()), player);
         for (int offset = 0; offset < total; offset += BATCH_SIZE) {
             CloudStorage.sendNonLocal(new MessageCloudTerminalContents(menu.containerId, menu.getTerminalRevision(),
-                    menu.getItemCapacity(), menu.getFluidCapacity(), offset, total,
+                    menu.getItemCapacity(), menu.getFluidCapacity(), menu.getFluidTypeCapacity(), offset, total,
                     entries.subList(offset, Math.min(total, offset + BATCH_SIZE))), player);
         }
     }

@@ -47,11 +47,14 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private long sentTerminalRevision = -1;
     private long observedFluidRevision = -1;
     private long observedFluidCapacity = -1;
+    private int observedFluidTypes = -1;
+    private boolean observedFluidEnabled;
     private List<CloudTerminalEntry> terminalEntries = List.of();
     private final List<CloudTerminalEntry> pendingTerminal = new ArrayList<>();
     private long pendingTerminalRevision = -1;
     private int pendingTerminalTotal;
     private long fluidCapacity;
+    private int fluidTypeCapacity;
 
     public CloudChestMenu(int id, Inventory playerInv) {
         this(id, playerInv, new SimpleContainer(CloudStorage.PROXY.getVisibleCloudSlots()));
@@ -92,7 +95,9 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     public long getTerminalRevision() { return terminalRevision; }
     public int getItemCapacity() { return container.getContainerSize(); }
-    public long getFluidCapacity() { return fluidStorage == null ? fluidCapacity : fluidStorage.capacity(); }
+    public long getFluidCapacity() { return fluidStorage == null ? fluidCapacity : fluidStorage.isEnabled() ? fluidStorage.capacity() : 0; }
+    public int getFluidTypeCapacity() { return fluidStorage == null ? fluidTypeCapacity : fluidStorage.isEnabled() ? fluidStorage.typeCapacity() : 0; }
+    public boolean isFluidStorageEnabled() { return getFluidTypeCapacity() > 0 || terminalEntries.stream().anyMatch(CloudTerminalEntry::isFluid); }
     public List<CloudTerminalEntry> getTerminalEntries() { return terminalEntries; }
 
     public void receiveTerminal(MessageCloudTerminalContents message) {
@@ -109,6 +114,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
             terminalEntries = List.copyOf(pendingTerminal);
             terminalRevision = message.revision();
             fluidCapacity = message.fluidCapacity();
+            fluidTypeCapacity = message.fluidTypeCapacity();
         }
     }
 
@@ -119,7 +125,8 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     private void refreshTerminal(boolean force) {
         boolean changed = fluidStorage != null
-                && (observedFluidRevision != fluidStorage.revision() || observedFluidCapacity != fluidStorage.capacity());
+                && (observedFluidRevision != fluidStorage.revision() || observedFluidCapacity != getFluidCapacity()
+                || observedFluidTypes != getFluidTypeCapacity() || observedFluidEnabled != fluidStorage.isEnabled());
         if (!changed) {
             int entry = 0;
             for (int i = 0; i < container.getContainerSize(); i++) {
@@ -140,7 +147,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 ItemStack stack = container.getItem(i);
                 if (!stack.isEmpty()) current.add(CloudTerminalEntry.item(i, stack));
             }
-            if (fluidStorage != null) {
+            if (fluidStorage != null && fluidStorage.isEnabled()) {
                 var fluids = fluidStorage.snapshot();
                 for (int i = 0; i < fluids.size(); i++) current.add(CloudTerminalEntry.fluid(i, fluids.get(i)));
             }
@@ -148,7 +155,9 @@ public class CloudChestMenu extends AbstractContainerMenu {
             terminalRevision++;
             if (fluidStorage != null) {
                 observedFluidRevision = fluidStorage.revision();
-                observedFluidCapacity = fluidStorage.capacity();
+                observedFluidCapacity = getFluidCapacity();
+                observedFluidTypes = getFluidTypeCapacity();
+                observedFluidEnabled = fluidStorage.isEnabled();
             }
         }
         if (owner instanceof ServerPlayer player && player.containerMenu == this && sentTerminalRevision != terminalRevision) {
@@ -168,7 +177,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
         }
         if (message.entry() >= terminalEntries.size()) return;
         var entry = message.entry() < 0 ? null : terminalEntries.get(message.entry());
-        if (fluidStorage != null && message.button() == 1 && FluidUtil.getFluidContained(getCarried()).isPresent()) {
+        if (fluidStorage != null && fluidStorage.isEnabled() && message.button() == 1 && FluidUtil.getFluidContained(getCarried()).isPresent()) {
             if (CloudFluidContainerInteraction.interact(player, this, fluidStorage, FluidStack.EMPTY, true)) fluidChanged.run();
         } else if (entry != null && entry.isFluid()) {
             if (message.button() == 0 && fluidStorage != null && CloudFluidContainerInteraction.interact(player, this,

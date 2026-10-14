@@ -15,7 +15,7 @@ sourceSets {
 }
 
 neoForge {
-    version = '21.1.203'
+    version = project.findProperty('neoForgeVersion') ?: '21.1.203'
     runs {
         client {
             client()
@@ -27,6 +27,10 @@ neoForge {
             }
             if (project.hasProperty('fluidSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
+            }
+            if (project.hasProperty('tankSmokeTest')) {
+                systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
+                systemProperty 'cloudstorage_reborn.tankSmokeTest', 'true'
             }
             if (project.hasProperty('mouseTweaksSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.fluidSmokeTest', 'true'
@@ -55,6 +59,10 @@ dependencies {
     }
     if (project.hasProperty('mouseTweaksTestJar')) {
         runtimeOnly files(project.property('mouseTweaksTestJar'))
+    }
+    if (project.hasProperty('modernIndustrializationTestMods')) {
+        runtimeOnly fileTree(dir: project.property('modernIndustrializationTestMods'),
+                includes: ['*Modern-Industrialization*.jar', 'guideme-*.jar', '*GrandPower*.jar'])
     }
 }
 

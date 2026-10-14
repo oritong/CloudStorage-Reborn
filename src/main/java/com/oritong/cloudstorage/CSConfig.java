@@ -4,6 +4,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 public class CSConfig {
 
+    public final ModConfigSpec.BooleanValue fluidStorage;
     public final ModConfigSpec.BooleanValue beyondDimensionsStorage;
     public final ModConfigSpec.IntValue beyondDimensionsTransferIntervalSeconds;
     public final ModConfigSpec.IntValue maxCloudSlots;
@@ -30,6 +31,10 @@ public class CSConfig {
 
     public CSConfig(final ModConfigSpec.Builder builder) {
         builder.push("storage");
+        fluidStorage = builder.comment("Enable cloud fluid storage and balloon uploads of blocks in #cloudstorage:fluid_storage.",
+                "Each uploaded tank adds one fluid type and its actual capacity. Chests only add item space.",
+                "Disabling preserves uploaded capacity and stored fluids until the feature is enabled again.")
+                .translation("config.cloudstorage_reborn.fluid_storage").define("fluid_storage", true);
         maxCloudSlots = builder.comment(" maximum slots that can be uploaded to a cloud chest. A vanilla chest has 27 slots.").translation("max_cloud_slots").defineInRange("max_cloud_slots", 4096, 27, Integer.MAX_VALUE);
         maxStaticCloudSlots = builder.comment(" maximum slots that can be uploaded to a static cloud chest. A vanilla chest has 27 slots.").translation("max_static_cloud_slots").defineInRange("max_static_cloud_slots", 4096, 27, Integer.MAX_VALUE);
         cloudChestOpenDistance = builder.comment(" how far from a player will cloud chests play an opening animation").translation("cloud_chest_open_distance").defineInRange("cloud_chest_open_distance", 6.0D, 1.5D, 16.0D);

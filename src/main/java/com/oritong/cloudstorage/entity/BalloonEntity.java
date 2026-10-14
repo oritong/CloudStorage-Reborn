@@ -212,13 +212,26 @@ public class BalloonEntity extends Entity {
     }
 
     private void upload() {
-        if (this.getChild() instanceof BalloonCargoEntity cargo) {
+        if (this.getChild() instanceof BalloonCargoEntity cargo && !cargo.isRemoved()) {
             if (cargo.getPlayerUUID() != null) {
-                if (cargo.getContainerSize() > 0) {
+                if (cargo.getContainerSize() > 0 || cargo.getFluidCapacity() > 0) {
                     CSWorldData data = CSWorldData.get(level());
                     if (data != null) {
                         int maximum = isCharged() ? CloudStorage.CONFIG.maxStaticCloudSlots.get() : CloudStorage.CONFIG.maxCloudSlots.get();
                         CloudIndex prev = isCharged() ? data.getPublicCloud(getBalloonColor()) : data.getPrivateCloud(cargo.getPlayerUUID(), getBalloonColor());
+                        if (cargo.getFluidCapacity() > 0) {
+                            CloudIndex cloud = prev == null ? new CloudIndex(cargo.getPlayerUUID(), getBalloonColor(), 0) : prev;
+                            if (!cloud.addFluidStorage(cargo.getFluidCapacity(), cargo.getStoredFluid(), cargo.getFluidAmount())) return;
+                            if (prev == null) {
+                                if (isCharged()) data.addPublicCloud(cloud);
+                                else data.addPrivateCloud(cloud);
+                            }
+                            data.setDirty();
+                            cargo.discard();
+                            if (level().getPlayerByUUID(cargo.getPlayerUUID()) instanceof ServerPlayer player)
+                                CommonProxy.UPLOAD_TRIGGER.trigger(player);
+                            return;
+                        }
                         if (prev != null) {
                             prev.resize(Math.min(prev.getContainerSize() + cargo.getContainerSize(), maximum));
                             for (ItemStack stack : cargo.getContainerItems()) {

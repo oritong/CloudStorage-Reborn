@@ -59,7 +59,7 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
         Player player = playerInventory.player;
         if (data != null && this.hasBalloonFor(player)) {
             CloudIndex cloudIndex = data.getPublicCloud(this.getBalloonFor(player));
-            if (cloudIndex != null && cloudIndex.getContainerSize() > 0) {
+            if (cloudIndex != null && cloudIndex.hasStorage()) {
                 return new CloudChestMenu(i, playerInventory, cloudIndex, data);
             }
         }
@@ -76,7 +76,7 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
         CSWorldData data = CSWorldData.get(getLevel());
         if (data != null && this.hasBalloonFor(player)) {
             CloudIndex cloudIndex = data.getPublicCloud(this.getBalloonFor(player));
-            return cloudIndex == null || cloudIndex.getContainerSize() == 0;
+            return cloudIndex == null || !cloudIndex.hasStorage();
         }
         return false;
     }

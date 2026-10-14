@@ -61,28 +61,40 @@ public final class FluidStorageTests {
         var cloud = new CloudIndex(owner, 0x934522, 27);
         var fluid = new FluidStack(Fluids.WATER, 25000);
         fluid.set(DataComponents.CUSTOM_NAME, Component.literal("Distinct water"));
+        helper.assertTrue(cloud.getFluids().capacity() == 0 && cloud.getFluids().typeCapacity() == 0
+                && cloud.getFluids().fill(fluid, EXECUTE) == 0, "A chest granted fluid capacity without a tank");
+        cloud.addFluidStorage(25000);
         helper.assertTrue(cloud.getFluids().fill(fluid, SIMULATE) == 25000 && cloud.getFluids().storedAmount() == 0, "Simulation mutated cloud fluids");
         cloud.getFluids().fill(fluid, EXECUTE);
+        cloud.getFluids().drain(fluid.copyWithAmount(1000), EXECUTE);
+        helper.assertTrue(cloud.getFluids().fill(new FluidStack(Fluids.LAVA, 1000), EXECUTE) == 0, "One uploaded tank accepted a second fluid type");
+        cloud.getFluids().fill(fluid.copyWithAmount(1000), EXECUTE);
+        cloud.addFluidStorage(2000);
         helper.assertTrue(cloud.getFluids().fill(new FluidStack(Fluids.LAVA, 3000), EXECUTE) == 2000, "Fluids did not share the total capacity");
         cloud.resize(54);
-        helper.assertTrue(cloud.getFluids().capacity() == 54000 && cloud.getFluids().storedAmount() == 27000, "Expansion lost fluid or failed to update capacity");
+        helper.assertTrue(cloud.getFluids().capacity() == 27000 && cloud.getFluids().typeCapacity() == 2
+                && cloud.getFluids().storedAmount() == 27000, "Item expansion changed uploaded tank capacity");
+        cloud.addFluidStorage(27000);
         data.addPrivateCloud(cloud);
         var other = new CloudIndex(UUID.randomUUID(), cloud.getBalloonColor(), 27);
         data.addPrivateCloud(other);
         var color = new CloudIndex(owner, 0x934523, 27);
         data.addPrivateCloud(color);
         var shared = new CloudIndex(owner, cloud.getBalloonColor(), 27);
+        shared.addFluidStorage(4000);
         shared.getFluids().fill(new FluidStack(Fluids.LAVA, 4000), EXECUTE);
         data.addPublicCloud(shared);
         var saved = data.save(new CompoundTag(), registries);
         var restored = CSWorldData.load(saved, registries);
         var storage = restored.getPrivateCloud(owner, cloud.getBalloonColor()).getFluids();
-        helper.assertTrue(storage.storedAmount() == 27000 && FluidStack.isSameFluidSameComponents(storage.getFluidInTank(0), fluid), "Saved fluid amount or components changed");
+        helper.assertTrue(storage.storedAmount() == 27000 && storage.capacity() == 54000 && storage.typeCapacity() == 3
+                && FluidStack.isSameFluidSameComponents(storage.getFluidInTank(0), fluid), "Saved tank capacity, type quota or contents changed");
         helper.assertTrue(restored.getPrivateCloud(other.getPlayerUUID(), other.getBalloonColor()).getFluids().storedAmount() == 0
                 && restored.getPrivateCloud(owner, color.getBalloonColor()).getFluids().storedAmount() == 0, "Private owners or colors shared fluids");
         helper.assertTrue(restored.getPublicCloud(shared.getBalloonColor()).getFluids().storedAmount() == 4000, "Public cloud fluid was mixed with private storage");
         cloud.resize(1);
-        helper.assertTrue(cloud.getFluids().storedAmount() == 27000 && cloud.getFluids().fill(fluid, EXECUTE) == 0, "Lowered capacity deleted saved fluid or allowed more insertion");
+        helper.assertTrue(cloud.getFluids().storedAmount() == 27000 && cloud.getFluids().capacity() == 54000
+                && cloud.getFluids().fill(fluid, SIMULATE) == 25000, "Item resizing changed fluid storage");
         CompoundTag legacy = new CompoundTag();
         cloud.writeToNBT(legacy, registries);
         legacy.remove("Fluids");
@@ -151,6 +163,7 @@ public final class FluidStorageTests {
     public static void menuValidationAndSnapshotSync(GameTestHelper helper) {
         var player = player(helper);
         var cloud = new CloudIndex(player.getUUID(), 0x451279, 27);
+        cloud.addFluidStorage(27000);
         var menu = new CloudChestMenu(14, player.getInventory(), cloud, CSWorldData.get(helper.getLevel()));
         player.containerMenu = menu;
         cloud.getContainer().setItem(10, new ItemStack(Items.DIAMOND, 6));
@@ -195,10 +208,10 @@ public final class FluidStorageTests {
         menu.handleTerminalAction(player, new MessageCloudTerminalAction(14, menu.getTerminalRevision(), 1, 0, false));
         helper.assertTrue(cloud.getFluids().storedAmount() == 1000, "Closed menu still allowed withdrawal");
         var clientMenu = new CloudChestMenu(14, player.getInventory(), new net.minecraft.world.SimpleContainer(90));
-        var large = new CloudFluidStorage(() -> 9_000_000_000L);
+        var large = new CloudFluidStorage(() -> 9_000_000_000L, () -> 301, () -> true);
         large.fill(new FluidStack(Fluids.WATER, Integer.MAX_VALUE), EXECUTE);
         large.fill(new FluidStack(Fluids.WATER, Integer.MAX_VALUE), EXECUTE);
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 300; i++) {
             var fluid = new FluidStack(Fluids.LAVA, i + 1);
             fluid.set(DataComponents.CUSTOM_NAME, Component.literal("Fluid " + i));
             large.fill(fluid, EXECUTE);
@@ -208,7 +221,7 @@ public final class FluidStorageTests {
         for (int i = 0; i < large.snapshot().size(); i++) entries.add(CloudTerminalEntry.fluid(i, large.snapshot().get(i)));
         for (int i = 0; i < 20; i++) entries.add(CloudTerminalEntry.item(i, new ItemStack(Items.GOLD_INGOT, 2)));
         for (int offset = 0; offset < entries.size(); offset += MessageCloudTerminalContents.BATCH_SIZE) {
-            var packet = new MessageCloudTerminalContents(14, large.revision(), 90, large.capacity(), offset, entries.size(),
+            var packet = new MessageCloudTerminalContents(14, large.revision(), 90, large.capacity(), large.typeCapacity(), offset, entries.size(),
                     entries.subList(offset, Math.min(entries.size(), offset + MessageCloudTerminalContents.BATCH_SIZE)));
             var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
             try {
@@ -217,10 +230,10 @@ public final class FluidStorageTests {
             } finally { buf.release(); }
             if (offset == 0) helper.assertTrue(clientMenu.getTerminalEntries().isEmpty(), "Incomplete snapshot exposed partial mixed ordering");
         }
-        helper.assertTrue(clientMenu.getTerminalEntries().size() == 42 && clientMenu.getTerminalEntries().get(1).amount() == 4_294_967_294L
-                && clientMenu.getFluidCapacity() == 9_000_000_000L
+        helper.assertTrue(clientMenu.getTerminalEntries().size() == 322 && clientMenu.getTerminalEntries().get(1).amount() == 4_294_967_294L
+                && clientMenu.getFluidCapacity() == 9_000_000_000L && clientMenu.getFluidTypeCapacity() == 301
                 && ItemStack.matches(clientMenu.getTerminalEntries().getFirst().item(), entries.getFirst().item())
-                && FluidStack.isSameFluidSameComponents(clientMenu.getTerminalEntries().get(21).fluid(), entries.get(21).fluid()), "Batched mixed snapshot lost long counts or components");
+                && FluidStack.isSameFluidSameComponents(clientMenu.getTerminalEntries().get(301).fluid(), entries.get(301).fluid()), "Batched mixed snapshot lost long counts, uploaded type quotas or components");
         helper.succeed();
     }
 
@@ -329,6 +342,7 @@ public final class FluidStorageTests {
         var player = player(helper);
         var data = CSWorldData.get(helper.getLevel());
         var cloud = new CloudIndex(player.getUUID(), 0x764389, 27);
+        cloud.addFluidStorage(1000);
         cloud.getFluids().fill(new FluidStack(Fluids.WATER, 1000), EXECUTE);
         data.addPrivateCloud(cloud);
         String pkg = "com.wintercogs.beyonddimensions.";

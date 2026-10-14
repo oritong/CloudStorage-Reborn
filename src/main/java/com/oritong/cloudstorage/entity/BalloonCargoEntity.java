@@ -1,6 +1,8 @@
 package com.oritong.cloudstorage.entity;
 
 import net.minecraft.CrashReportCategory;
+import com.oritong.cloudstorage.compat.CloudTankUpload;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -51,6 +53,9 @@ public class BalloonCargoEntity extends Entity {
     private int fallDamageMax = 40;
     private float fallDamagePerDistance;
     private int containerSize;
+    private long fluidCapacity;
+    private long fluidAmount;
+    private FluidStack storedFluid = FluidStack.EMPTY;
     private List<ItemStack> containerItems = new ArrayList<>();
     public BalloonCargoEntity(EntityType<?> type, Level level) {
         super(type, level);
@@ -243,6 +248,9 @@ public class BalloonCargoEntity extends Entity {
             this.setBlockState(Blocks.CHEST.defaultBlockState());
         }
         this.containerSize = compound.getInt("ContainerSize");
+        this.fluidCapacity = Math.max(0, compound.getLong("FluidCapacity"));
+        this.fluidAmount = Math.max(0, compound.getLong("FluidAmount"));
+        this.storedFluid = FluidStack.parseOptional(registryAccess(), compound.getCompound("StoredFluid"));
         ListTag tag = compound.getList("ContainerItems", 10);
         for(int i = 0; i < tag.size(); ++i) {
             CompoundTag compoundtag = tag.getCompound(i);
@@ -273,6 +281,9 @@ public class BalloonCargoEntity extends Entity {
             compound.put("TileEntityData", this.blockData);
         }
         compound.putInt("ContainerSize", this.containerSize);
+        compound.putLong("FluidCapacity", fluidCapacity);
+        compound.putLong("FluidAmount", fluidAmount);
+        if (!storedFluid.isEmpty()) compound.put("StoredFluid", storedFluid.save(registryAccess()));
         ListTag tag = new ListTag();
         for(int i = 0; i < containerItems.size(); ++i) {
             if (!containerItems.get(i).isEmpty()) {
@@ -300,4 +311,14 @@ public class BalloonCargoEntity extends Entity {
     public int getContainerSize(){
         return containerSize;
     }
+
+    public void copyTankData(CloudTankUpload.Tank tank) {
+        fluidCapacity = tank.capacity();
+        storedFluid = tank.fluid().copy();
+        fluidAmount = tank.amount();
+    }
+
+    public long getFluidCapacity() { return fluidCapacity; }
+    public long getFluidAmount() { return fluidAmount; }
+    public FluidStack getStoredFluid() { return storedFluid; }
 }

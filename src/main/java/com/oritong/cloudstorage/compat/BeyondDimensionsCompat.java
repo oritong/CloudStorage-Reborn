@@ -115,6 +115,7 @@ public final class BeyondDimensionsCompat {
     }
 
     public static long transferFluids(CloudFluidStorage source, IFluidHandler destination) {
+        if (!source.isEnabled()) return 0;
         long moved = 0;
         for (var entry : source.snapshot()) {
             // Bound work per scan even for clouds holding more than Integer.MAX_VALUE mB.
@@ -139,7 +140,7 @@ public final class BeyondDimensionsCompat {
             CSWorldData data = CSWorldData.get(player.level());
             if (data == null) return null;
             transferClouds(player, data, target);
-            if (!cloud.getContainer().isEmpty() || cloud.getFluids().storedAmount() > 0) return null;
+            if (!cloud.getContainer().isEmpty() || cloud.getFluids().isEnabled() && cloud.getFluids().storedAmount() > 0) return null;
             MenuType<?> type = BuiltInRegistries.MENU.get(ResourceLocation.fromNamespaceAndPath("beyonddimensions", "dimensions_net_menu"));
             if (type == null) throw new IllegalStateException("Beyond Dimensions storage menu is not registered");
             AbstractContainerMenu menu = (AbstractContainerMenu) api.menu.newInstance(type, id, inventory, target.storage);

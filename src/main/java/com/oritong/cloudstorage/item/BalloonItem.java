@@ -1,5 +1,7 @@
 package com.oritong.cloudstorage.item;
 
+import com.oritong.cloudstorage.compat.CloudTankUpload;
+
 import com.oritong.cloudstorage.item.StackData;
 
 import com.oritong.cloudstorage.CloudStorage;
@@ -247,6 +249,13 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
         if(isLoot(itemstack)){
             return false;
         }
+        boolean fluidTank = blockstate.is(CloudTankUpload.TAG);
+        CloudTankUpload.Tank tank = null;
+        if (fluidTank) {
+            if (level.isClientSide) return true;
+            tank = CloudTankUpload.capture(level, blockpos);
+            if (tank == null) return false;
+        }
         BalloonEntity balloon = CSEntityRegistry.BALLOON.get().create(level);
 
         CompoundTag compoundtag = StackData.get(itemstack);
@@ -264,11 +273,15 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
                     tie.setBalloonCount(tie.getBalloonCount() + 1);
                     balloon.setChildId(tie.getUUID());
                 }
-            } else if (level.getBlockEntity(blockpos) instanceof Container) {
+            } else if (fluidTank || level.getBlockEntity(blockpos) instanceof Container) {
                 BlockEntity te = level.getBlockEntity(blockpos);
-                BalloonCargoEntity cargo = BalloonCargoEntity.createCargo(level, blockpos, blockstate, te.saveWithoutMetadata(level.registryAccess()));
-                cargo.copyContainerData(((Container) te));
-                ((Container) te).clearContent();
+                BalloonCargoEntity cargo = BalloonCargoEntity.createCargo(level, blockpos, blockstate,
+                        te == null ? null : te.saveWithoutMetadata(level.registryAccess()));
+                if (fluidTank) cargo.copyTankData(tank);
+                else {
+                    cargo.copyContainerData(((Container) te));
+                    ((Container) te).clearContent();
+                }
                 if (player != null) {
                     cargo.setPlayerUUID(player.getUUID());
                 }

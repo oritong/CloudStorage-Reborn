@@ -95,7 +95,7 @@ public class CloudStorage
         });
     }
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("5");
+        var registrar = event.registrar("6");
         registrar.playToServer(MessageCloudQuickMove.TYPE, MessageCloudQuickMove.CODEC, MessageCloudQuickMove::handle);
         registrar.playToServer(MessageCloudTerminalAction.TYPE, MessageCloudTerminalAction.CODEC, MessageCloudTerminalAction::handle);
         registrar.playToClient(MessageCloudTerminalContents.TYPE, MessageCloudTerminalContents.CODEC, MessageCloudTerminalContents::handle);

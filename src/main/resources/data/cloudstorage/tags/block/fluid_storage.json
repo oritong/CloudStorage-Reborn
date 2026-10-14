@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "modern_industrialization:iron_tank", "required": false },
+    { "id": "modern_industrialization:bronze_tank", "required": false },
+    { "id": "modern_industrialization:steel_tank", "required": false },
+    { "id": "modern_industrialization:aluminum_tank", "required": false },
+    { "id": "modern_industrialization:stainless_steel_tank", "required": false },
+    { "id": "modern_industrialization:titanium_tank", "required": false },
+    { "id": "modern_industrialization:quantum_tank", "required": false }
+  ]
+}

@@ -26,7 +26,22 @@
 
 按住 **Shift** 会固定已有条目的位置，数量仍会实时更新。取完的条目暂时保留在原位；相同物品重新存入时会回填原来的显示位置，即使后台槽位改变，也不会不断追加重复的 0 数量条目。多组相同物品分别匹配，不会重复显示同一组。新的物品和流体只要符合搜索条件，就会立即追加到列表末尾，可以直接继续存取。松开 Shift 后再按当前排序整理列表。Shift 点击物品会将其转移到背包。
 
-流体与物品使用各自的容量。每上传一个普通箱子，除了 27 个物品槽位，还会增加 27,000 mB（27 桶）流体容量；多种流体共用这份流体容量，最多保存 256 种流体及其数据变体。私人流体库存沿用玩家 UUID 和气球颜色，静电流体库存沿用公共颜色，都会随世界保存。现阶段通过 GUI 存取，还没有加入流体管道接口。
+流体空间需要单独上传储罐。**每上传一个储罐，增加 1 个流体种类额度，并增加该储罐实际大小的容量。** 多种流体共用总容量；带有不同数据的流体会分别占用种类额度。箱子只增加物品槽位，普通箱子是 27 格。只上传储罐、没有物品空间时，也能打开云箱存取流体。
+
+目前已支持 Modern Industrialization 的铁、青铜、钢、铝、不锈钢、钛和量子储罐。给储罐绑上气球，像上传箱子一样送上天即可；罐内已有的流体也会一起存入。容量读取储罐的实际数值，量子储罐的大容量和已有流体不会被普通整数范围截断。MI 是可选联动，不需要为了使用云存储安装它。
+
+流体功能默认开启，可在 `config/cloudstorage_reborn-common.toml` 中关闭：
+
+```toml
+[storage]
+fluid_storage = true
+```
+
+改成 `false` 后，储罐上传、终端流体存取和向超越维度转存流体都会停用，已上传的容量、种类额度和流体数据会保留。私人流体库存按玩家 UUID 和气球颜色区分，静电库存按公共颜色区分，随世界保存。现阶段通过 GUI 存取，还没有流体管道接口。
+
+可上传储罐由方块标签 **`cloudstorage:fluid_storage`** 决定。数据包可通过 `data/cloudstorage/tags/block/fluid_storage.json` 追加其他模组的储罐；方块需要提供标准流体能力，目前支持空罐或只含一种流体的储罐。内置的七种 MI 储罐都是可选标签项，不装 MI 也能正常加载。
+
+之前测试版由箱子赠送的流体容量不再生效。已有流体会保留，可以取出；需要上传储罐获得容量和种类额度后才能继续正常存入。
 
 容器交互参考了 AE2 的处理方式，使用 NeoForge 的标准流体能力接口实现。**不需要安装 AE2**；其他模组的容器只要提供标准流体能力，也可以使用。
 
@@ -88,9 +103,11 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 终端 GUI 的开发检查使用 `gradlew.bat -PfluidSmokeTest runClient`，会通过实际点击验证物品和流体存取、叠放空桶、混合搜索、滚动和 Shift 排列锁定，保存截图后退出。
 
+储罐联动测试可用 `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=本地模组目录 runGameTestServer` 加载 MI 及其依赖，验证七级储罐的实际上传和存档读写。`-PtankSmokeTest runClient` 会检查没有物品槽位的流体终端、桶的实际存取和配置开关同步。
+
 Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -PmouseTweaksSmokeTest runClient`，会通过它的实际自定义界面处理器验证坐标识别、双向快速转移和连续请求。编译使用仓库内的独立 API 接口源码，运行时由 Mouse Tweaks 提供接口，成品不包含 Mouse Tweaks 或它的接口类。
 
-目前通过了编译、14 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前通过了编译、17 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、MI 七级储罐上传、量子容量、流体保存与容器存取、配置关闭后保留数据、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -120,7 +137,22 @@ Pick up a bucket or fluid container with your cursor. Right-click in the termina
 
 Hold **Shift** to keep existing entries in place while their counts update. Depleted entries stay in their original positions. Returning the same item restores its previous display position, even if it occupies a different cloud slot, so repeated transfers do not accumulate stale zero-count entries. Multiple stacks are matched separately without displaying the same stack twice. New items and fluids that match your search appear at the end immediately and remain accessible. Release Shift to sort the list again. Shift-click an item to move it into your inventory.
 
-Items and fluids have separate capacities. Each uploaded regular chest adds 27 item slots and 27,000 mB of fluid space. Different fluids share that space, with up to 256 fluid types and data variants. Private storage follows the same player UUID and balloon color as items; static storage follows its shared color. Fluids are saved with the world. This first implementation supports GUI transfers; fluid pipes are not connected yet.
+Fluid space comes from uploaded tanks. **Each tank adds one fluid type slot and its actual capacity.** All stored fluids share the total capacity; fluids with different data count as separate types. Chests add item slots only: 27 for a regular chest. You can open a Cloud Chest with just fluid space, even if you have never uploaded an item chest.
+
+Modern Industrialization's iron, bronze, steel, aluminum, stainless steel, titanium and quantum tanks are supported. Tie a balloon to a tank and send it up just like a chest. Any fluid inside comes with it. Capacity is read from the actual tank, including quantum capacities and contents beyond the ordinary integer range. MI is optional.
+
+Fluid storage is enabled by default. Its switch is in `config/cloudstorage_reborn-common.toml`:
+
+```toml
+[storage]
+fluid_storage = true
+```
+
+Setting it to `false` disables tank uploads, terminal fluid transfers and fluid transfers to Beyond Dimensions. Uploaded capacity, type slots and saved fluids are preserved. Private fluid storage follows the player UUID and balloon color; static storage follows its shared color. Both are saved with the world. Transfers currently use the GUI; fluid pipes are not connected yet.
+
+The block tag **`cloudstorage:fluid_storage`** controls which tanks can be uploaded. Data packs can add other tanks through `data/cloudstorage/tags/block/fluid_storage.json`. A tank must expose a standard fluid capability; empty tanks and tanks containing a single fluid type are supported. The seven built-in MI entries are optional, so the tag loads without MI installed.
+
+Fluid capacity previously granted by chests in test builds is no longer available. Existing fluids are preserved and can be withdrawn. Upload tanks to gain the capacity and type slots needed for further deposits.
 
 The container interaction follows AE2's approach and uses NeoForge's standard fluid capabilities. **AE2 is not required.** Containers from other mods work when they provide the standard fluid capability.
 
@@ -182,9 +214,11 @@ To check the integration, supply `-PbeyondDimensionsTestJar=/path/to/local.jar` 
 
 Run `./gradlew -PfluidSmokeTest runClient` for the terminal GUI check. It performs real clicks to check item and fluid transfers, stacked buckets, mixed searches, scrolling and Shift-locked ordering, saves screenshots, then exits.
 
+Use `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=/path/to/mods runGameTestServer` to load local MI dependencies and check actual uploads and saves for all seven tank tiers. `-PtankSmokeTest runClient` checks a terminal with zero item slots, actual bucket transfers and configuration synchronization.
+
 For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -PmouseTweaksSmokeTest runClient`. It checks coordinate mapping, rapid requests and transfers in both directions through the actual custom screen handler. The compile-only API source is included in the repository; the runtime interface comes from Mouse Tweaks. Neither Mouse Tweaks nor its interface class is bundled into the mod JAR.
 
-The port passes compilation, fourteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+The port passes compilation, seventeen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, all seven MI tank tiers, quantum capacity, fluid persistence and container transfers, data preservation while disabled, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

@@ -199,7 +199,9 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             if (entry.isFluid()) {
                 graphics.renderComponentTooltip(font, List.of(name(entry), Component.literal(String.format(Locale.ROOT, "%,d mB", entry.amount())),
                         Component.translatable("cloudstorage_reborn.container.fluid_capacity", String.format(Locale.ROOT, "%,d", menu.getTerminalEntries().stream().filter(CloudTerminalEntry::isFluid).mapToLong(CloudTerminalEntry::amount).sum()),
-                                String.format(Locale.ROOT, "%,d", menu.getFluidCapacity()))), mouseX, mouseY);
+                                String.format(Locale.ROOT, "%,d", menu.getFluidCapacity())),
+                        Component.translatable("cloudstorage_reborn.container.fluid_types",
+                                menu.getTerminalEntries().stream().filter(CloudTerminalEntry::isFluid).count(), menu.getFluidTypeCapacity())), mouseX, mouseY);
             } else graphics.renderTooltip(font, getTooltipFromContainerItem(entry.item()), entry.item().getTooltipImage(), entry.item(), mouseX, mouseY);
         } else renderTooltip(graphics, mouseX, mouseY);
     }
@@ -207,7 +209,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     /** Describe the two different actions of a carried container, without covering the grid with storage details. */
     public List<Component> getContainerTooltip(CloudTerminalEntry hovered) {
         ItemStack carried = menu.getCarried();
-        if (carried.isEmpty() || FluidUtil.getFluidHandler(carried.copyWithCount(1)).isEmpty()) return List.of();
+        if (!menu.isFluidStorageEnabled() || carried.isEmpty() || FluidUtil.getFluidHandler(carried.copyWithCount(1)).isEmpty()) return List.of();
         var contained = FluidUtil.getFluidContained(carried.copyWithCount(1));
         Component left = hovered != null && hovered.isFluid()
                 ? containerAction("take", "left", name(hovered))
