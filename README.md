@@ -24,7 +24,7 @@
 
 先把桶或流体容器拿到鼠标上。在终端列表区域右键，会把容器里的流体倒入云库存；左键点击已存的流体，会用它装填容器。每次点击处理一个容器，叠放的空桶填满后会放回背包，背包满了则掉在玩家脚边。普通桶每次需要完整的 1,000 mB，装不下或不够一桶时不会消耗容器；支持部分装填的模组容器按实际可转移量处理。鼠标悬停可查看流体名称、数量和总容量。拿着装满的容器悬停在物品或空格上时，会分别提示「左键点击：存入 水桶」「右键点击：存入 水」。左键可以直接保存容器物品；也可以在背包里用 Shift 点击存入。
 
-按住 **Shift** 会固定已有条目的位置，数量仍会实时更新。取完的条目暂时保留在原位，新存入且符合搜索条件的物品和流体会立即追加到列表末尾，可以直接继续存取。松开 Shift 后再按当前排序整理列表。Shift 点击物品会将其转移到背包。
+按住 **Shift** 会固定已有条目的位置，数量仍会实时更新。取完的条目暂时保留在原位；相同物品重新存入时会回填原来的显示位置，即使后台槽位改变，也不会不断追加重复的 0 数量条目。多组相同物品分别匹配，不会重复显示同一组。新的物品和流体只要符合搜索条件，就会立即追加到列表末尾，可以直接继续存取。松开 Shift 后再按当前排序整理列表。Shift 点击物品会将其转移到背包。
 
 流体与物品使用各自的容量。每上传一个普通箱子，除了 27 个物品槽位，还会增加 27,000 mB（27 桶）流体容量；多种流体共用这份流体容量，最多保存 256 种流体及其数据变体。私人流体库存沿用玩家 UUID 和气球颜色，静电流体库存沿用公共颜色，都会随世界保存。现阶段通过 GUI 存取，还没有加入流体管道接口。
 
@@ -90,7 +90,7 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -PmouseTweaksSmokeTest runClient`，会通过它的实际自定义界面处理器验证坐标识别、双向快速转移和连续请求。编译使用仓库内的独立 API 接口源码，运行时由 Mouse Tweaks 提供接口，成品不包含 Mouse Tweaks 或它的接口类。
 
-目前通过了编译、13 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前通过了编译、14 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、流体保存与容器存取、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -118,7 +118,7 @@ Cloud Chests can now store water, lava and modded fluids. Items and fluids share
 
 Pick up a bucket or fluid container with your cursor. Right-click in the terminal grid to empty it into the cloud, or left-click a stored fluid to fill the container. Each click handles one container. When filling stacked buckets, the filled bucket goes into your inventory, or drops at your feet if the inventory is full. Regular buckets need a full 1,000 mB; insufficient space or fluid leaves them unchanged. Modded containers that support partial transfers move only what fits. Hover over the grid for fluid names, amounts and total capacity. With a filled container over an item or empty slot, a two-line tooltip distinguishes storing the container with left-click from emptying its fluid with right-click. You can also Shift-click a filled container from your inventory to store it as an item.
 
-Hold **Shift** to keep existing entries in place while their counts update. Depleted entries stay in their original positions. Newly stored items and fluids that match your search appear at the end immediately and remain accessible. Release Shift to sort the list again. Shift-click an item to move it into your inventory.
+Hold **Shift** to keep existing entries in place while their counts update. Depleted entries stay in their original positions. Returning the same item restores its previous display position, even if it occupies a different cloud slot, so repeated transfers do not accumulate stale zero-count entries. Multiple stacks are matched separately without displaying the same stack twice. New items and fluids that match your search appear at the end immediately and remain accessible. Release Shift to sort the list again. Shift-click an item to move it into your inventory.
 
 Items and fluids have separate capacities. Each uploaded regular chest adds 27 item slots and 27,000 mB of fluid space. Different fluids share that space, with up to 256 fluid types and data variants. Private storage follows the same player UUID and balloon color as items; static storage follows its shared color. Fluids are saved with the world. This first implementation supports GUI transfers; fluid pipes are not connected yet.
 
@@ -184,7 +184,7 @@ Run `./gradlew -PfluidSmokeTest runClient` for the terminal GUI check. It perfor
 
 For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -PmouseTweaksSmokeTest runClient`. It checks coordinate mapping, rapid requests and transfers in both directions through the actual custom screen handler. The compile-only API source is included in the repository; the runtime interface comes from Mouse Tweaks. Neither Mouse Tweaks nor its interface class is bundled into the mod JAR.
 
-The port passes compilation, thirteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+The port passes compilation, fourteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, fluid persistence and container transfers, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

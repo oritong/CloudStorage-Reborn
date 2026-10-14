@@ -11,6 +11,7 @@ import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
 import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
+import com.oritong.cloudstorage.inventory.CloudTerminalOrder;
 import com.oritong.cloudstorage.world.CSWorldData;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.component.DataComponents;
@@ -41,6 +42,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.UUID;
+import java.util.List;
 
 import static net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction.*;
 
@@ -219,6 +221,49 @@ public final class FluidStorageTests {
                 && clientMenu.getFluidCapacity() == 9_000_000_000L
                 && ItemStack.matches(clientMenu.getTerminalEntries().getFirst().item(), entries.getFirst().item())
                 && FluidStack.isSameFluidSameComponents(clientMenu.getTerminalEntries().get(21).fluid(), entries.get(21).fluid()), "Batched mixed snapshot lost long counts or components");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void lockedTerminalRestocking(GameTestHelper helper) {
+        var namedApple = new ItemStack(Items.APPLE, 3);
+        namedApple.set(DataComponents.CUSTOM_NAME, Component.literal("Distinct apple"));
+        var water = new CloudTerminalEntry(0, ItemStack.EMPTY, new FluidStack(Fluids.WATER, 1000), 1000);
+        var lava = new CloudTerminalEntry(1, ItemStack.EMPTY, new FluidStack(Fluids.LAVA, 500), 500);
+        var initial = List.of(CloudTerminalEntry.item(80, new ItemStack(Items.APPLE, 4)),
+                CloudTerminalEntry.item(60, new ItemStack(Items.APPLE, 9)), CloudTerminalEntry.item(40, namedApple),
+                CloudTerminalEntry.item(30, new ItemStack(Items.GOLD_INGOT, 6)), water, lava);
+        var remaining = List.of(initial.get(1), initial.get(2), initial.get(3), lava, water);
+        var view = CloudTerminalOrder.refreshLocked(initial, remaining, entry -> true);
+        helper.assertTrue(view.size() == initial.size() && view.get(0).amount() == 0
+                && view.get(1).source() == 60 && view.get(1).amount() == 9,
+                "A depleted position claimed another live stack of the same item");
+        var returned = List.of(CloudTerminalEntry.item(0, new ItemStack(Items.APPLE, 4)),
+                initial.get(1), initial.get(2), initial.get(3), lava, water);
+        view = CloudTerminalOrder.refreshLocked(view, returned, entry -> true);
+        helper.assertTrue(view.size() == initial.size() && view.get(0).source() == 0 && view.get(0).amount() == 4
+                && view.get(1).source() == 60 && view.get(1).amount() == 9,
+                "Returning an item to a different source appended a stale duplicate");
+        for (int cycle = 0; cycle < 30; cycle++) {
+            view = CloudTerminalOrder.refreshLocked(view, List.of(lava, water), entry -> true);
+            helper.assertTrue(view.subList(0, 4).stream().allMatch(entry -> entry.amount() == 0), "Withdrawal left a live item in the display");
+            int base = cycle % 10 * 4;
+            var current = List.of(CloudTerminalEntry.item(base, new ItemStack(Items.APPLE, 4)),
+                    CloudTerminalEntry.item(base + 1, new ItemStack(Items.APPLE, 9)), CloudTerminalEntry.item(base + 2, namedApple),
+                    CloudTerminalEntry.item(base + 3, new ItemStack(Items.GOLD_INGOT, 6)), lava, water);
+            view = CloudTerminalOrder.refreshLocked(view, current, entry -> true);
+            helper.assertTrue(view.size() == initial.size() && view.stream().noneMatch(entry -> entry.amount() == 0)
+                    && view.stream().filter(entry -> !entry.isFluid()).mapToLong(CloudTerminalEntry::amount).sum() == 22
+                    && view.get(0).source() == base && view.get(1).source() == base + 1
+                    && ItemStack.isSameItemSameComponents(view.get(2).item(), namedApple)
+                    && view.get(4).fluid().getFluid() == Fluids.WATER && view.get(5).fluid().getFluid() == Fluids.LAVA,
+                    "Repeated restocking grew the list, duplicated a stack, or reordered resources");
+        }
+        var distinct = CloudTerminalOrder.refreshLocked(List.of(initial.getFirst()),
+                List.of(CloudTerminalEntry.item(80, namedApple), initial.get(3)), entry -> entry.item().is(Items.APPLE));
+        helper.assertTrue(distinct.size() == 2 && distinct.getFirst().amount() == 0
+                && ItemStack.isSameItemSameComponents(distinct.get(1).item(), namedApple),
+                "Restocking merged different data components or appended an item excluded by search");
         helper.succeed();
     }
 

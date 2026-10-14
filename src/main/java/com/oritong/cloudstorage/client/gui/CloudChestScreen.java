@@ -3,6 +3,7 @@ package com.oritong.cloudstorage.client.gui;
 import com.oritong.cloudstorage.CloudStorage;
 import com.oritong.cloudstorage.inventory.CloudChestMenu;
 import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
+import com.oritong.cloudstorage.inventory.CloudTerminalOrder;
 import com.oritong.cloudstorage.inventory.SlotCloudChest;
 import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudSearchContents;
@@ -84,11 +85,6 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     public void receiveSearchContents(MessageCloudSearchContents message) { }
     private boolean orderLocked() { return shiftKeyHeld || hasShiftDown(); }
 
-    private static boolean sameEntry(CloudTerminalEntry a, CloudTerminalEntry b) {
-        return a.isFluid() == b.isFluid() && (a.isFluid() ? FluidStack.isSameFluidSameComponents(a.fluid(), b.fluid())
-                : a.source() == b.source() && ItemStack.isSameItemSameComponents(a.item(), b.item()));
-    }
-
     private void updateDisplay() {
         var current = menu.getTerminalEntries();
         boolean locked = orderLocked();
@@ -97,17 +93,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                 && displayedSort == sortByName && displayedLocked == locked) return;
         if (locked) {
             if (lockedOrder == null) lockedOrder = List.copyOf(displayed);
-            List<CloudTerminalEntry> refreshed = new ArrayList<>();
-            for (var key : lockedOrder) {
-                var entry = current.stream().filter(candidate -> sameEntry(key, candidate)).findFirst().orElse(null);
-                refreshed.add(entry == null ? new CloudTerminalEntry(key.source(), key.item(), key.fluid(), 0) : entry);
-            }
-            // Lock existing positions, but keep newly stored resources accessible immediately.
-            for (var entry : current) {
-                if (matches(entry, query) && lockedOrder.stream().noneMatch(key -> sameEntry(key, entry))) refreshed.add(entry);
-            }
-            lockedOrder = List.copyOf(refreshed);
-            displayed = List.copyOf(refreshed);
+            lockedOrder = CloudTerminalOrder.refreshLocked(lockedOrder, current, entry -> matches(entry, query));
+            displayed = lockedOrder;
         } else {
             lockedOrder = null;
             List<CloudTerminalEntry> matches = new ArrayList<>();

@@ -54,6 +54,7 @@ public final class FluidClientSmokeTest {
     private static Object mouseTweaksHandler;
     private static Object mouseTweaksLeft;
     private static Class<?> mouseTweaksButtonClass;
+    private static int mouseTweaksCycles;
 
     @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
@@ -108,17 +109,19 @@ public final class FluidClientSmokeTest {
             cloud.getFluids().fill(shiftFluid(500), EXECUTE);
             player.containerMenu.broadcastChanges();
             phase = 90;
-        } else if (phase == 91 && cloud.getContainer().getItem(0).isEmpty() && player.getInventory().countItem(Items.APPLE) == 4) {
+        } else if (phase == 91 && cloud.getContainer().countItem(Items.APPLE) == 0 && player.getInventory().countItem(Items.APPLE) == 4) {
             for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
                 if (player.getInventory().getItem(i).is(Items.APPLE)) player.getInventory().setItem(i, ItemStack.EMPTY);
             }
+            // Occupy the old apple slot with an existing resource; returning apples must use a different source.
+            cloud.getContainer().setItem(0, cloud.getContainer().removeItemNoUpdate(60));
             player.containerMenu.setCarried(new ItemStack(Items.APPLE, 4));
             cloud.getFluids().fill(shiftFluid(500), EXECUTE);
             player.containerMenu.broadcastChanges();
             phase = 92;
-        } else if (phase == 13 && player.containerMenu.getCarried().is(Items.APPLE) && cloud.getContainer().getItem(0).isEmpty()) {
+        } else if (phase == 13 && player.containerMenu.getCarried().is(Items.APPLE) && cloud.getContainer().countItem(Items.APPLE) == 0) {
             phase = 14;
-        } else if (phase == 15 && player.containerMenu.getCarried().isEmpty() && cloud.getContainer().getItem(0).is(Items.APPLE)) {
+        } else if (phase == 15 && player.containerMenu.getCarried().isEmpty() && cloud.getContainer().countItem(Items.APPLE) == 4) {
             for (int i = 0; i < 60; i++) {
                 var fluid = new FluidStack(Fluids.WATER, 100 + i);
                 fluid.set(DataComponents.CUSTOM_NAME, Component.literal("Fluid variant " + i));
@@ -140,8 +143,7 @@ public final class FluidClientSmokeTest {
             cloud.getContainer().setItem(0, apple);
             player.containerMenu.broadcastChanges();
             phase = 101;
-        } else if (phase == 102 && cloud.getContainer().getItem(80).isEmpty() && cloud.getContainer().getItem(60).isEmpty()
-                && cloud.getContainer().getItem(0).isEmpty() && player.getInventory().countItem(Items.DIAMOND) == 6
+        } else if ((phase == 102 || phase == 106) && cloud.getContainer().isEmpty() && player.getInventory().countItem(Items.DIAMOND) == 6
                 && player.getInventory().countItem(Items.GOLD_INGOT) == 9 && player.getInventory().countItem(Items.APPLE) == 4) {
             phase = 103;
         } else if (phase == 104 && player.getInventory().countItem(Items.DIAMOND) == 0
@@ -275,6 +277,7 @@ public final class FluidClientSmokeTest {
         } else if (phase == 101 && menu.getCarried().isEmpty()
                 && menu.getTerminalEntries().stream().anyMatch(entry -> entry.item().is(Items.DIAMOND)) && ++frames > 20) {
             screen.keyPressed(340, 0, 1);
+            locked = List.copyOf(screen.getDisplayedEntries());
             int first = find(screen, entry -> entry.item().is(Items.DIAMOND));
             mouseTweaksButtonClass = Class.forName("yalter.mousetweaks.MouseButton");
             mouseTweaksLeft = mouseTweaksButtonClass.getField("LEFT").get(null);
@@ -319,8 +322,21 @@ public final class FluidClientSmokeTest {
         } else if (phase == 105 && menu.getTerminalEntries().stream().filter(entry -> !entry.isFluid()).count() == 3 && ++frames > 20) {
             if (menu.getTerminalEntries().stream().filter(entry -> !entry.isFluid()).mapToLong(CloudTerminalEntry::amount).sum() != 19)
                 throw new AssertionError("Mouse Tweaks return transfers lost or duplicated items");
+            var view = screen.getDisplayedEntries();
+            assertLockedPrefix(view);
+            if (view.size() != locked.size() || view.stream().anyMatch(entry -> entry.amount() == 0))
+                throw new AssertionError("Repeated Shift transfers accumulated stale zero entries");
+            if (++mouseTweaksCycles < 8) {
+                frames = 0;
+                phase = 106;
+                for (var item : List.of(Items.DIAMOND, Items.GOLD_INGOT, Items.APPLE)) {
+                    int index = find(screen, entry -> entry.item().is(item));
+                    mouseTweaksTransfer(mouseTweaksSlot(left + 16 + index % 9 * 18, top + 26 + index / 9 * 18));
+                }
+                return;
+            }
             capture(client, "cloud-mousetweaks-quick-move.png");
-            CloudStorage.LOGGER.info("MOUSE_TWEAKS_CLIENT_SMOKE_TEST_PASSED: actual custom handler, virtual coordinates, rapid cloud withdrawals, inventory deposits, duplicate protection and ignored fluids");
+            CloudStorage.LOGGER.info("MOUSE_TWEAKS_CLIENT_SMOKE_TEST_PASSED: actual custom handler, virtual coordinates, eight Shift withdrawal/deposit cycles without stale placeholders, duplicate protection and ignored fluids");
             client.stop();
         }
     }
@@ -330,7 +346,7 @@ public final class FluidClientSmokeTest {
         for (int i = 0; i < locked.size(); i++) {
             var a = locked.get(i); var b = view.get(i);
             if (a.isFluid() != b.isFluid() || (a.isFluid() ? !FluidStack.isSameFluidSameComponents(a.fluid(), b.fluid())
-                    : a.source() != b.source() || !ItemStack.isSameItemSameComponents(a.item(), b.item())))
+                    : !ItemStack.isSameItemSameComponents(a.item(), b.item())))
                 throw new AssertionError("Shift reordered mixed entries");
         }
     }
