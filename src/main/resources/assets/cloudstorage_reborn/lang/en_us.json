@@ -1,5 +1,8 @@
 {
   "itemGroup.cloudstorage_reborn": "Cloud Storage:Reborn",
+  "cloudstorage_reborn.crafting.auto_clear": "Auto clear: %s\nReturn ingredients to the cloud when closing. Anything that does not fit stays in the grid.",
+  "cloudstorage_reborn.crafting.auto_pull": "Auto refill: %s\nRefill ingredients from the cloud after crafting. Alternatives are allowed when the recipe and output stay the same.",
+  "cloudstorage_reborn.crafting.to_cloud": "Store in cloud: %s\nOn: Shift crafting fills cloud storage first, then your inventory.\nOff: Fill your inventory first, then cloud storage.",
   "cloudstorage_reborn.container.click_left": "Left-click",
   "cloudstorage_reborn.container.click_right": "Right-click",
   "cloudstorage_reborn.container.action_store": "%s: Store %s",

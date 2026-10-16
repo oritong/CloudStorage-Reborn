@@ -133,6 +133,7 @@ public final class BeyondDimensionsCompat {
     /** Returns null for ordinary cloud storage fallback, including a full network's remaining items. */
     @Nullable
     public static AbstractContainerMenu createMenu(int id, Inventory inventory, CloudIndex cloud) {
+        if (cloud.functionMask() != 0) return null;
         Player player = inventory.player;
         Target target = getTarget(player);
         if (target == null) return null;

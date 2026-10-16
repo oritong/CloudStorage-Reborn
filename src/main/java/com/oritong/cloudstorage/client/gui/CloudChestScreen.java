@@ -5,6 +5,7 @@ import com.oritong.cloudstorage.inventory.CloudChestMenu;
 import com.oritong.cloudstorage.inventory.CloudTerminalEntry;
 import com.oritong.cloudstorage.inventory.CloudTerminalOrder;
 import com.oritong.cloudstorage.inventory.SlotCloudChest;
+import com.oritong.cloudstorage.misc.CloudFunction;
 import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudSearchContents;
 import com.oritong.cloudstorage.network.MessageCloudQuickMove;
@@ -50,6 +51,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     private boolean displayedLocked;
     private final List<Slot> mouseTweaksSlots = new ArrayList<>();
     public int mode;
+    private int visibleRows = 6;
+    private int layoutFlags = -1;
 
     public CloudChestScreen(CloudChestMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -61,7 +64,13 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     @Override protected void init() {
+        visibleRows = Math.max(1, Math.min(6, (height - 16 - 114 - (menu.isCraftingOpen() ? 78 : 0)) / 18));
+        imageHeight = 114 + visibleRows * 18 + (menu.isCraftingOpen() ? 78 : 0);
+        inventoryLabelY = imageHeight - 94;
         super.init();
+        menu.layoutSlots(visibleRows);
+        layoutFlags = menu.getFunctionMask() | (menu.isCraftingOpen() ? 256 : 0)
+                | (menu.isAutoClear() ? 512 : 0) | (menu.isAutoPull() ? 1024 : 0) | (menu.isCraftToCloud() ? 2048 : 0);
         String previous = searchBox == null ? "" : searchBox.getValue();
         searchBox = new EditBox(font, leftPos + 82, topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
         searchBox.setMaxLength(50);
@@ -70,17 +79,40 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         searchBox.setValue(previous);
         searchBox.setResponder(query -> { scrollRow = 0; lockedOrder = null; updateDisplay(); });
         addWidget(searchBox);
-        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 141, 0, button -> {
+        int controlsY = topPos + imageHeight - 81;
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, controlsY, 0, button -> {
             searchBox.setValue("");
             scrollRow = 0;
         }));
-        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 157, 1, button -> {
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, controlsY + 16, 1, button -> {
             sortByName = !sortByName;
             if (!orderLocked()) scrollRow = 0;
         }));
-        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, topPos + 173, 2, button -> searchBox.setFocused(true)));
+        addRenderableWidget(new CloudMiniButton(this, leftPos + 174, controlsY + 32, 2, button -> searchBox.setFocused(true)));
+        int functionY = topPos + 8;
+        for (var function : CloudFunction.values()) if (menu.hasFunction(function)) {
+            addRenderableWidget(new CloudCraftingButton(leftPos - 28, functionY, 24,
+                    function.block().getName(), new ItemStack(function.block()), -1, menu.isCraftingOpen(),
+                    button -> sendButton(100 + function.ordinal())));
+            functionY += 28;
+        }
+        if (menu.isCraftingOpen()) {
+            boolean[] enabled = { menu.isAutoClear(), menu.isAutoPull(), menu.isCraftToCloud() };
+            String[] names = { "auto_clear", "auto_pull", "to_cloud" };
+            for (int i = 0; i < 3; i++) {
+                final int action = i;
+                Component tooltip = Component.translatable("cloudstorage_reborn.crafting." + names[i],
+                        Component.translatable(enabled[i] ? "options.on" : "options.off"));
+                addRenderableWidget(new CloudCraftingButton(leftPos + 174, topPos + 18 + visibleRows * 18 + 16 + i * 18,
+                        14, tooltip, ItemStack.EMPTY, i, enabled[i], button -> sendButton(200 + action)));
+            }
+        }
+        scrollRow = Math.min(scrollRow, maxScrollRow());
         updateDisplay();
     }
+
+    private void sendButton(int button) { minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button); }
+    public int getVisibleRows() { return visibleRows; }
 
     public void receiveSearchContents(MessageCloudSearchContents message) { }
     private boolean orderLocked() { return shiftKeyHeld || hasShiftDown(); }
@@ -127,8 +159,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     public int getScrollRow() { return scrollRow; }
 
     public List<Slot> getMouseTweaksSlots() {
-        List<Slot> slots = new ArrayList<>(mouseTweaksSlots);
-        for (Slot slot : menu.slots) if (!(slot instanceof SlotCloudChest)) slots.add(slot);
+        List<Slot> slots = new ArrayList<>(mouseTweaksSlots.subList(0, visibleRows * 9));
+        for (Slot slot : menu.slots) if (!(slot instanceof SlotCloudChest) && slot.isActive()) slots.add(slot);
         return slots;
     }
 
@@ -143,7 +175,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     }
 
     public boolean isMouseTweaksSlotIgnored(Slot slot) {
-        return slot instanceof MouseTweaksTerminalSlot && !slot.hasItem();
+        return slot.index == menu.craftingResultSlot() && menu.slots.contains(slot)
+                || slot instanceof MouseTweaksTerminalSlot && !slot.hasItem();
     }
 
     public boolean disableMouseTweaksQuickCraft() {
@@ -171,7 +204,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         }
         private CloudTerminalEntry entry() {
             int index = scrollRow * 9 + visibleIndex;
-            return index < displayed.size() ? displayed.get(index) : null;
+            return visibleIndex < visibleRows * 9 && index < displayed.size() ? displayed.get(index) : null;
         }
         @Override public ItemStack getItem() {
             var entry = entry();
@@ -180,11 +213,11 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         @Override public boolean mayPlace(ItemStack stack) { return false; }
     }
 
-    private int maxScrollRow() { return Math.max(0, (displayed.size() + 8) / 9 - 6); }
+    private int maxScrollRow() { return Math.max(0, (displayed.size() + 8) / 9 - visibleRows); }
     private int gridIndex(double x, double y) {
         int column = (int) Math.floor((x - leftPos - 8) / 18);
         int row = (int) Math.floor((y - topPos - 18) / 18);
-        return column >= 0 && column < 9 && row >= 0 && row < 6 ? (scrollRow + row) * 9 + column : -1;
+        return column >= 0 && column < 9 && row >= 0 && row < visibleRows ? (scrollRow + row) * 9 + column : -1;
     }
 
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -235,9 +268,32 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     @Override protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         graphics.setColor(1, 1, 1, 1);
-        graphics.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+        // Reuse the original header, grid rows and inventory section at their natural pixel size.
+        graphics.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, 18);
+        int gridEnd = 18 + visibleRows * 18;
+        for (int row = 0; row < visibleRows; row++)
+            graphics.blit(TEXTURE, leftPos, topPos + 18 + row * 18, 0, 18, imageWidth, 18);
+        if (menu.isCraftingOpen()) {
+            graphics.fill(leftPos, topPos + gridEnd, leftPos + imageWidth, topPos + gridEnd + 78, 0xFFC6C6C6);
+            graphics.fill(leftPos, topPos + gridEnd, leftPos + 3, topPos + gridEnd + 78, 0xFFFFFFFF);
+            graphics.fill(leftPos + imageWidth - 3, topPos + gridEnd, leftPos + imageWidth, topPos + gridEnd + 78, 0xFF555555);
+            for (int i = 0; i < 10; i++) {
+                Slot slot = menu.slots.get(menu.craftingStart() + i);
+                graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
+            }
+            graphics.drawString(font, Component.translatable("container.crafting"), leftPos + 8, topPos + gridEnd + 5, 4210752, false);
+            graphics.drawString(font, "→", leftPos + 100, topPos + gridEnd + 40, 4210752, false);
+        }
+        graphics.blit(TEXTURE, leftPos, topPos + gridEnd + (menu.isCraftingOpen() ? 78 : 0), 0, 126, imageWidth, 96);
+        if (menu.isCraftingOpen()) graphics.fill(leftPos + 173, topPos + gridEnd + 78,
+                leftPos + 190, topPos + gridEnd + 83, 0xFFC6C6C6);
+        if (menu.getFunctionMask() != 0) {
+            graphics.fill(leftPos - 34, topPos + 2, leftPos - 2, topPos + imageHeight - 2, 0xFF373737);
+            graphics.fill(leftPos - 33, topPos + 3, leftPos - 3, topPos + imageHeight - 3, 0xFFFFFFFF);
+            graphics.fill(leftPos - 31, topPos + 5, leftPos - 4, topPos + imageHeight - 4, 0xFFC6C6C6);
+        }
         int hovered = gridIndex(mouseX, mouseY);
-        for (int visible = 0; visible < 54; visible++) {
+        for (int visible = 0; visible < visibleRows * 9; visible++) {
             int x = leftPos + 8 + visible % 9 * 18;
             int y = topPos + 18 + visible / 9 * 18;
             graphics.blit(TEXTURE, x - 1, y - 1, 0, 222, 18, 18);
@@ -253,7 +309,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             if (hovered == index) graphics.fill(x, y, x + 16, y + 16, 0x60FFFFFF);
         }
         int max = maxScrollRow();
-        graphics.blit(TEXTURE, leftPos + 175, topPos + 18 + (max == 0 ? 0 : Math.round(95F * scrollRow / max)), 232 + (max > 0 ? 0 : 12), 0, 12, 15);
+        graphics.fill(leftPos + 174, topPos + 17, leftPos + 188, topPos + gridEnd, 0xFF888888);
+        graphics.blit(TEXTURE, leftPos + 175, topPos + 18 + (max == 0 ? 0 : Math.round((visibleRows * 18 - 15F) * scrollRow / max)), 232 + (max > 0 ? 0 : 12), 0, 12, 15);
         graphics.blit(TEXTURE, leftPos + 79, topPos + 4, 36, 222, 90, 12);
         searchBox.render(graphics, mouseX, mouseY, partialTick);
     }
@@ -315,7 +372,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             }
             return true;
         }
-        if (button == 0 && x >= leftPos + 175 && x < leftPos + 189 && y >= topPos + 18 && y < topPos + 130) {
+        if (button == 0 && x >= leftPos + 175 && x < leftPos + 189 && y >= topPos + 18 && y < topPos + 18 + visibleRows * 18) {
             scrolling = maxScrollRow() > 0;
             return true;
         }
@@ -328,7 +385,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         return super.mouseReleased(x, y, button);
     }
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
-        if (scrolling) { scrollRow = Math.round(Mth.clamp(((float) y - topPos - 25.5F) / 97F, 0, 1) * maxScrollRow()); return true; }
+        if (scrolling) { scrollRow = Math.round(Mth.clamp(((float) y - topPos - 25.5F) / Math.max(1, visibleRows * 18 - 15F), 0, 1) * maxScrollRow()); return true; }
         if (consumeRelease) return true;
         return super.mouseDragged(x, y, button, dx, dy);
     }
@@ -336,5 +393,10 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         scrollRow = Mth.clamp(scrollRow - (int) Math.signum(vertical), 0, maxScrollRow());
         return true;
     }
-    @Override protected void containerTick() { updateDisplay(); }
+    @Override protected void containerTick() {
+        int flags = menu.getFunctionMask() | (menu.isCraftingOpen() ? 256 : 0)
+                | (menu.isAutoClear() ? 512 : 0) | (menu.isAutoPull() ? 1024 : 0) | (menu.isCraftToCloud() ? 2048 : 0);
+        if (flags != layoutFlags) rebuildWidgets();
+        updateDisplay();
+    }
 }

@@ -249,6 +249,8 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
         if(isLoot(itemstack)){
             return false;
         }
+        boolean functional = com.oritong.cloudstorage.misc.CloudFunction.forBlock(blockstate) != null;
+        if (functional && level.isClientSide) return true;
         boolean fluidTank = blockstate.is(CloudTankUpload.TAG);
         CloudTankUpload.Tank tank = null;
         if (fluidTank) {
@@ -273,7 +275,7 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
                     tie.setBalloonCount(tie.getBalloonCount() + 1);
                     balloon.setChildId(tie.getUUID());
                 }
-            } else if (fluidTank || level.getBlockEntity(blockpos) instanceof Container) {
+            } else if (functional || fluidTank || level.getBlockEntity(blockpos) instanceof Container) {
                 BlockEntity te = level.getBlockEntity(blockpos);
                 BalloonCargoEntity cargo = BalloonCargoEntity.createCargo(level, blockpos, blockstate,
                         te == null ? null : te.saveWithoutMetadata(level.registryAccess()));
@@ -287,7 +289,7 @@ public class BalloonItem extends Item implements BalloonDyeable, CustomTabBehavi
                         }
                     }
                     if (items != null) cargo.copyTankItems(items);
-                } else {
+                } else if (te instanceof Container) {
                     cargo.copyContainerData(((Container) te));
                     ((Container) te).clearContent();
                 }

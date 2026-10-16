@@ -18,6 +18,22 @@
 
 模组里还保留了气球箭、气球伙伴、吹云器和天空建筑。第一次玩可以先合成指南书，里面有配方和玩法说明。
 
+### 云端工作台
+
+工作台也能绑上气球送上天。第一次上传会为对应的云库存解锁合成区，左侧随之出现功能栏和工作台按钮；重复上传不会扩容，也不会增加额外效果。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。
+
+点击工作台按钮，就会在云库存和背包之间展开一个 3×3 合成区，再点一次收起。窗口高度不够时，会先减少云库存显示的行数，剩下的物品仍可滚动查看。合成格里的材料默认会保留，关闭界面、换一个连接同一库存的云箱或重新进入世界，都可以继续使用。公共库存的合成格也由使用同色库存的玩家共享。
+
+合成区右侧有三个开关，默认都关闭，设置随这份云库存保存：
+
+- **自动清除**：关闭云箱时，把合成格里的材料放回云库存。只能放回一部分时，其余材料留在原来的合成格里。
+- **自动拉取**：合成后从云库存补充材料，可以连续 Shift 合成。优先使用原材料；同一个配方中、不会改变产物及其数据的替代材料也可以补入。只使用已经存入云端的材料，不会发起其他配方的自动合成。
+- **存入云端**：关闭时，Shift 合成优先放进背包，背包装不下再放云端；开启后则先放云端，云端装不下再放背包。两边加起来也放不下完整产物时，就会停止合成，保留材料。
+
+普通点击合成结果仍会拿到鼠标上。每次 Shift 点击最多执行 64 次合成，避免材料较多时一次操作占用太长时间。不需要安装 AE2。
+
+开启超越维度联动时，已解锁功能方块的云箱会保留云端终端，方便使用合成区；原有的后台转存仍按配置运行，合成格里的材料不会被转存。
+
 ### 流体存储
 
 云箱现在也能存水、熔岩和模组流体。物品和流体显示在同一个终端列表中，共用搜索框、排序和滚动，不需要切换页面。搜索也支持流体名称、`@模组ID` 和 `#标签`，客户端装有 JEC 时可以用拼音匹配。
@@ -128,6 +144,22 @@ Regular balloons connect to your private cloud inventory. Matching colors share 
 For shared storage and hopper access, use static balloons and Static Cloud Chests. These connect to a public inventory and support automation. Cloud Chests need access to the sky, so they won't work underground or in the Nether.
 
 Balloon arrows, Balloon Buddies, the Cloud Blower and sky structures are also included. Craft the guide book for recipes and more details.
+
+### Cloud Crafting
+
+Tie a balloon to a crafting table and send it up. The first upload unlocks a crafting area for that cloud inventory and adds a workbench button in a new sidebar on the left. Uploading more workbenches has no additional effect. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory.
+
+Click the workbench button to expand a 3×3 crafting grid between cloud storage and your inventory. Click again to collapse it. When the screen is too short, the terminal shows fewer storage rows and keeps the rest accessible by scrolling. Ingredients stay in the grid by default, even after closing the screen, opening another chest connected to the same cloud, or reloading the world. Players using the same public cloud also share its crafting grid.
+
+The three switches on the right start disabled and are saved with the cloud inventory:
+
+- **Auto clear** returns ingredients to cloud storage when you close the chest. Anything that does not fit stays in its original crafting slot.
+- **Auto refill** pulls ingredients from cloud storage after crafting, including between Shift crafts. It prefers the original ingredients and also accepts alternatives that keep the same recipe and exact output. It uses existing materials only; it does not craft missing ingredients through other recipes.
+- **Store in cloud** changes the Shift crafting destination. Off: inventory first, cloud storage for overflow. On: cloud storage first, inventory for overflow. Crafting stops if neither destination has enough combined room for a complete result, leaving the ingredients intact.
+
+An ordinary click still picks the result up on your cursor. Each Shift click performs at most 64 crafts to keep large batches from holding up the server. AE2 is not required.
+
+With Beyond Dimensions integration enabled, clouds with an unlocked functional block keep the cloud terminal so the crafting grid remains accessible. Background transfers still follow the configured interval and leave crafting ingredients alone.
 
 ### Fluid Storage
 

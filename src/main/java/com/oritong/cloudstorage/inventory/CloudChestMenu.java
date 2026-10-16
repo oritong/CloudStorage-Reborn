@@ -6,6 +6,7 @@ import com.oritong.cloudstorage.network.MessageCloudTerminalAction;
 import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
 import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.oritong.cloudstorage.misc.CloudIndex;
+import com.oritong.cloudstorage.misc.CloudFunction;
 import com.oritong.cloudstorage.world.CSWorldData;
 import com.google.common.collect.Lists;
 import net.minecraft.ChatFormatting;
@@ -15,11 +16,17 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.ContainerListener;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.inventory.ResultContainer;
+import net.minecraft.world.inventory.ResultSlot;
+import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
@@ -55,15 +62,32 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private int pendingTerminalTotal;
     private long fluidCapacity;
     private int fluidTypeCapacity;
+    private final CloudIndex cloud;
+    private final CloudCraftingContainer crafting;
+    private final ResultContainer craftingResult = new ResultContainer();
+    private final ContainerListener craftingListener;
+    private boolean craftingOpen;
+    private int clientCraftingFlags;
+    private long observedCraftingRevision = -1;
+    private long lastPullTerminalRevision = -1;
+    private long lastPullCraftingRevision = -1;
 
     public CloudChestMenu(int id, Inventory playerInv) {
         this(id, playerInv, new SimpleContainer(CloudStorage.PROXY.getVisibleCloudSlots()));
     }
 
     public CloudChestMenu(int id, Inventory playerInv, Container containerIn) {
+        this(id, playerInv, containerIn, null, () -> { });
+    }
+
+    private CloudChestMenu(int id, Inventory playerInv, Container containerIn, CloudIndex cloud, Runnable changed) {
         super(CSMenuRegistry.CLOUD_CHEST_MENU.get(), id);
         this.owner = playerInv.player;
         this.container = containerIn;
+        this.cloud = cloud;
+        this.fluidChanged = changed;
+        this.fluidStorage = cloud == null ? null : cloud.getFluids();
+        this.crafting = cloud == null ? new CloudCraftingContainer() : cloud.getCrafting();
         containerIn.startOpen(playerInv.player);
         int clampedSize = Math.min(containerIn.getContainerSize(), 54);
 
@@ -83,14 +107,203 @@ public class CloudChestMenu extends AbstractContainerMenu {
         for (int j1 = 0; j1 < 9; ++j1) {
             this.addSlot(new Slot(playerInv, j1, 8 + j1 * 18, 198));
         }
+        for (int i = 0; i < 9; i++) addSlot(craftingSlot(i, 30 + i % 3 * 18, 144 + i / 3 * 18));
+        addSlot(new CloudResultSlot(124, 162));
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return craftingFlags(); }
+            @Override public void set(int value) { clientCraftingFlags = value; }
+        });
+        craftingListener = ignored -> { observedCraftingRevision = -1; fluidChanged.run(); };
+        if (!owner.level().isClientSide()) crafting.addListener(craftingListener);
         CloudStorage.PROXY.setVisibleCloudSlots(containerIn.getContainerSize());
         scrollTo(0.0F, false);
+        updateCraftingResult();
     }
 
     public CloudChestMenu(int id, Inventory playerInv, CloudIndex cloud, CSWorldData data) {
-        this(id, playerInv, cloud.getContainer());
-        fluidStorage = cloud.getFluids();
-        fluidChanged = data::setDirty;
+        this(id, playerInv, cloud.getContainer(), cloud, data::setDirty);
+    }
+
+    private int craftingFlags() {
+        if (cloud == null) return clientCraftingFlags;
+        return cloud.functionMask() | (craftingOpen ? 256 : 0) | (cloud.autoClear() ? 512 : 0)
+                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0);
+    }
+    public int getFunctionMask() { return craftingFlags() & 255; }
+    public boolean hasFunction(CloudFunction function) { return (getFunctionMask() & function.mask()) != 0; }
+    public boolean isCraftingOpen() { return hasFunction(CloudFunction.CRAFTING_TABLE) && (craftingFlags() & 256) != 0; }
+    public boolean isAutoClear() { return (craftingFlags() & 512) != 0; }
+    public boolean isAutoPull() { return (craftingFlags() & 1024) != 0; }
+    public boolean isCraftToCloud() { return (craftingFlags() & 2048) != 0; }
+    public int craftingStart() { return playerSlotEnd(); }
+    public int craftingResultSlot() { return craftingStart() + 9; }
+    public CloudCraftingContainer getCrafting() { return crafting; }
+
+    @Override public boolean clickMenuButton(Player player, int button) {
+        if (player != owner || player.level().isClientSide() || cloud == null || !stillValid(player)) return false;
+        if (button == 100 && hasFunction(CloudFunction.CRAFTING_TABLE)) craftingOpen = !craftingOpen;
+        else if (hasFunction(CloudFunction.CRAFTING_TABLE)) {
+            switch (button) {
+                case 200 -> cloud.setAutoClear(!cloud.autoClear());
+                case 201 -> cloud.setAutoPull(!cloud.autoPull());
+                case 202 -> cloud.setCraftToCloud(!cloud.craftToCloud());
+                default -> { return false; }
+            }
+        } else return false;
+        lastPullTerminalRevision = -1;
+        lastPullCraftingRevision = -1;
+        fluidChanged.run();
+        broadcastChanges();
+        return true;
+    }
+
+    private Slot craftingSlot(int index, int x, int y) {
+        return new Slot(crafting, index, x, y) {
+            @Override public boolean isActive() { return isCraftingOpen(); }
+            @Override public boolean mayPlace(ItemStack stack) { return isActive(); }
+            @Override public boolean mayPickup(Player player) { return isActive(); }
+        };
+    }
+
+    /** Slot coordinates are final in vanilla; replace only the views when the screen is resized. */
+    public void layoutSlots(int rows) {
+        int offset = (rows - 6) * 18 + (isCraftingOpen() ? 78 : 0);
+        for (int i = 0; i < 36; i++) {
+            int index = cloudSlotCount() + i;
+            Slot old = slots.get(index);
+            Slot replacement = new Slot(old.container, old.getContainerSlot(), 8 + i % 9 * 18,
+                    (i < 27 ? 140 + i / 9 * 18 : 198) + offset);
+            replacement.index = index;
+            slots.set(index, replacement);
+        }
+        int gridY = 18 + rows * 18 + 18;
+        for (int i = 0; i < 10; i++) {
+            int index = craftingStart() + i;
+            Slot replacement = i == 9 ? new CloudResultSlot(124, gridY + 18)
+                    : craftingSlot(i, 30 + i % 3 * 18, gridY + i / 3 * 18);
+            replacement.index = index;
+            slots.set(index, replacement);
+        }
+    }
+
+    private void updateCraftingResult() {
+        if (owner.level().isClientSide() || observedCraftingRevision == crafting.revision()) return;
+        observedCraftingRevision = crafting.revision();
+        ItemStack output = ItemStack.EMPTY;
+        if (hasFunction(CloudFunction.CRAFTING_TABLE) && owner instanceof ServerPlayer player) {
+            var input = crafting.asCraftInput();
+            var recipe = owner.level().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, owner.level());
+            if (recipe.isPresent() && craftingResult.setRecipeUsed(owner.level(), player, recipe.get())) {
+                ItemStack assembled = recipe.get().value().assemble(input, owner.level().registryAccess());
+                if (assembled.isItemEnabled(owner.level().enabledFeatures())) output = assembled;
+            } else craftingResult.setRecipeUsed(null);
+        }
+        craftingResult.setItem(0, output);
+    }
+
+    private void pullIngredients() {
+        if (!isCraftingOpen() || !isAutoPull() || owner.level().isClientSide()) return;
+        List<ItemStack> pattern = crafting.pattern();
+        boolean missing = false;
+        for (int i = 0; i < 9; i++) if (!pattern.get(i).isEmpty() && crafting.getItem(i).isEmpty()) { missing = true; break; }
+        if (!missing) return;
+        var input = CraftingInput.of(3, 3, pattern);
+        var recipe = owner.level().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, owner.level());
+        if (recipe.isEmpty()) return;
+        ItemStack expected = recipe.get().value().assemble(input, owner.level().registryAccess());
+        crafting.beginBatch();
+        boolean changed = false;
+        try {
+            for (int i = 0; i < 9; i++) {
+                ItemStack wanted = pattern.get(i);
+                if (wanted.isEmpty() || !crafting.getItem(i).isEmpty()) continue;
+                int source = -1;
+                for (int j = 0; j < container.getContainerSize(); j++) {
+                    if (ItemStack.isSameItemSameComponents(container.getItem(j), wanted)) { source = j; break; }
+                }
+                if (source < 0) {
+                    // Accept tag alternatives only when they preserve this recipe and its exact output.
+                    for (int j = 0; j < container.getContainerSize(); j++) {
+                        ItemStack candidate = container.getItem(j);
+                        if (candidate.isEmpty()) continue;
+                        List<ItemStack> test = new ArrayList<>(pattern);
+                        for (int k = 0; k < 9; k++) if (!crafting.getItem(k).isEmpty()) test.set(k, crafting.getItem(k));
+                        test.set(i, candidate.copyWithCount(1));
+                        var candidateInput = CraftingInput.of(3, 3, test);
+                        if (!recipe.get().value().matches(candidateInput, owner.level())) continue;
+                        var candidateRecipe = owner.level().getRecipeManager().getRecipeFor(RecipeType.CRAFTING, candidateInput, owner.level());
+                        if (candidateRecipe.isPresent() && candidateRecipe.get().id().equals(recipe.get().id()) && ItemStack.matches(expected,
+                                candidateRecipe.get().value().assemble(candidateInput, owner.level().registryAccess()))) { source = j; break; }
+                    }
+                }
+                if (source >= 0) {
+                    crafting.setItem(i, container.removeItem(source, 1));
+                    changed = true;
+                }
+            }
+        } finally { crafting.endBatch(); }
+        if (changed) { container.setChanged(); fluidChanged.run(); }
+    }
+
+    private final class CloudResultSlot extends ResultSlot {
+        CloudResultSlot(int x, int y) { super(owner, crafting, craftingResult, 0, x, y); }
+        @Override public boolean isActive() { return isCraftingOpen(); }
+        @Override public boolean mayPickup(Player player) { return isActive() && player == owner; }
+        @Override public void onTake(Player player, ItemStack stack) {
+            if (owner.level().isClientSide()) return;
+            crafting.rememberPattern();
+            crafting.beginBatch();
+            try { super.onTake(player, stack); }
+            finally { crafting.endBatch(); }
+            pullIngredients();
+            updateCraftingResult();
+            fluidChanged.run();
+        }
+        void quickCraft(ItemStack output) { onQuickCraft(output, output.getCount()); }
+    }
+
+    private int freeSpace(Container target, ItemStack stack, int limit) {
+        int space = 0;
+        for (int i = 0; i < target.getContainerSize() && space < limit; i++) {
+            ItemStack existing = target.getItem(i);
+            if (existing.isEmpty() || ItemStack.isSameItemSameComponents(existing, stack))
+                space += Math.max(0, Math.min(target.getMaxStackSize(stack), stack.getMaxStackSize()) - existing.getCount());
+        }
+        return space;
+    }
+
+    private ItemStack quickCraft(Player player) {
+        if (player != owner || !isCraftingOpen() || player.level().isClientSide()) return ItemStack.EMPTY;
+        updateCraftingResult();
+        ItemStack first = craftingResult.getItem(0).copy();
+        for (int crafts = 0; crafts < 64; crafts++) {
+            ItemStack output = craftingResult.getItem(0).copy();
+            if (output.isEmpty() || !ItemStack.isSameItemSameComponents(output, first)) break;
+            // Include only the 36 main inventory slots, never armor, offhand or crafting ingredients.
+            int inventorySpace = 0;
+            for (int i = cloudSlotCount(); i < playerSlotEnd(); i++) {
+                Slot slot = slots.get(i);
+                ItemStack existing = slot.getItem();
+                if (slot.mayPlace(output) && (existing.isEmpty() || ItemStack.isSameItemSameComponents(existing, output)))
+                    inventorySpace += Math.max(0, slot.getMaxStackSize(output) - existing.getCount());
+            }
+            if (inventorySpace + freeSpace(container, output, output.getCount()) < output.getCount()) break;
+            ItemStack moved = output.copy();
+            if (isCraftToCloud()) moveItemStackToScrollable(moved, 0, container.getContainerSize(), false);
+            moveItemStackTo(moved, cloudSlotCount(), playerSlotEnd(), true);
+            if (!isCraftToCloud()) moveItemStackToScrollable(moved, 0, container.getContainerSize(), false);
+            craftingResult.setItem(0, ItemStack.EMPTY);
+            var resultSlot = (CloudResultSlot) slots.get(craftingResultSlot());
+            output.getItem().onCraftedBy(output, player.level(), player);
+            resultSlot.quickCraft(output);
+            resultSlot.onTake(player, output);
+        }
+        broadcastChanges();
+        return first;
+    }
+
+    @Override public boolean canTakeItemForPickAll(ItemStack stack, Slot slot) {
+        return slot.container != craftingResult && super.canTakeItemForPickAll(stack, slot);
     }
 
     public long getTerminalRevision() { return terminalRevision; }
@@ -119,6 +332,15 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     @Override public void broadcastChanges() {
+        if (!owner.level().isClientSide()) {
+            refreshTerminal(false);
+            if (lastPullTerminalRevision != terminalRevision || lastPullCraftingRevision != crafting.revision()) {
+                pullIngredients();
+                lastPullTerminalRevision = terminalRevision;
+                lastPullCraftingRevision = crafting.revision();
+            }
+            updateCraftingResult();
+        }
         super.broadcastChanges();
         if (!owner.level().isClientSide()) refreshTerminal(false);
     }
@@ -184,7 +406,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                     fluidStorage, entry.fluid().copyWithAmount(Integer.MAX_VALUE), false)) fluidChanged.run();
         } else if (message.shift() && entry != null && getCarried().isEmpty()) {
             ItemStack source = container.getItem(entry.source());
-            moveItemStackTo(source, cloudSlotCount(), slots.size(), true);
+            moveItemStackTo(source, cloudSlotCount(), playerSlotEnd(), true);
             if (source.isEmpty()) container.setItem(entry.source(), ItemStack.EMPTY);
             container.setChanged();
         } else {
@@ -195,6 +417,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     private int cloudSlotCount() { return Math.min(container.getContainerSize(), 54); }
+    private int playerSlotEnd() { return cloudSlotCount() + 36; }
 
     public void handleQuickMove(Player player, MessageCloudQuickMove message) {
         if (player != owner || player.containerMenu != this || !stillValid(player)
@@ -202,7 +425,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 || message.source() < 0 || message.source() >= container.getContainerSize() || message.expected().isEmpty()) return;
         ItemStack source = container.getItem(message.source());
         if (!ItemStack.matches(source, message.expected())) return;
-        if (moveItemStackTo(source, cloudSlotCount(), slots.size(), true)) {
+        if (moveItemStackTo(source, cloudSlotCount(), playerSlotEnd(), true)) {
             if (source.isEmpty()) container.setItem(message.source(), ItemStack.EMPTY);
             container.setChanged();
             fluidChanged.run();
@@ -245,7 +468,13 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     @Override public void clicked(int slotId, int button, ClickType type, Player player) {
         if (slotId >= 0 && slotId < slots.size() && slots.get(slotId) instanceof SlotCloudChest) return;
+        if (slotId >= craftingStart() && slotId < slots.size() && !isCraftingOpen()) return;
+        if (slotId == craftingResultSlot()) {
+            updateCraftingResult();
+            if (type == ClickType.QUICK_MOVE) { quickCraft(player); return; }
+        }
         super.clicked(slotId, button, type, player);
+        updateCraftingResult();
     }
 
     public static boolean matchesSearch(Player player, String search, ItemStack stack) {
@@ -310,6 +539,8 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     public ItemStack quickMoveStack(Player player, int slotIndex) {
         if (slotIndex < cloudSlotCount() || slotIndex >= slots.size()) return ItemStack.EMPTY;
+        if (slotIndex == craftingResultSlot()) return quickCraft(player);
+        if (slotIndex >= craftingStart() && !isCraftingOpen()) return ItemStack.EMPTY;
         ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.slots.get(slotIndex);
         int clampedSize = Math.min(this.container.getContainerSize(), 54);
@@ -427,6 +658,21 @@ public class CloudChestMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         pendingClientSearch = null;
         super.removed(player);
+        if (!owner.level().isClientSide()) {
+            crafting.removeListener(craftingListener);
+            if (isAutoClear()) {
+                crafting.beginBatch();
+                try {
+                    for (int i = 0; i < 9; i++) {
+                        ItemStack stack = crafting.getItem(i);
+                        moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+                        if (stack.isEmpty()) crafting.setItem(i, ItemStack.EMPTY);
+                    }
+                    crafting.rememberPattern();
+                } finally { crafting.endBatch(); }
+                fluidChanged.run();
+            }
+        }
         this.container.stopOpen(player);
     }
 

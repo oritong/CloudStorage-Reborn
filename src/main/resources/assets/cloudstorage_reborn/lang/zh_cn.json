@@ -1,5 +1,8 @@
 {
   "itemGroup.cloudstorage_reborn": "云存储：涅槃",
+  "cloudstorage_reborn.crafting.auto_clear": "自动清除：%s\n关闭云箱时将合成材料放回云端，放不下的留在合成格。",
+  "cloudstorage_reborn.crafting.auto_pull": "自动拉取：%s\n合成后自动从云端补充材料；相同配方且产物不变时也可使用替代材料。",
+  "cloudstorage_reborn.crafting.to_cloud": "存入云端：%s\n开启：Shift 合成优先放入云端，放不下再放背包。\n关闭：优先放入背包，放不下再放云端。",
   "cloudstorage_reborn.container.click_left": "左键点击",
   "cloudstorage_reborn.container.click_right": "右键点击",
   "cloudstorage_reborn.container.action_store": "%s：存入 %s",

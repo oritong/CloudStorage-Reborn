@@ -146,7 +146,8 @@ public class MigrationTests {
         var chest = (com.oritong.cloudstorage.block.CloudChestBlockEntity) level.getBlockEntity(pos);
         chest.setBalloonColorFor(player, color);
         var menu = (com.oritong.cloudstorage.inventory.CloudChestMenu) chest.getMenu(1, player.getInventory());
-        helper.assertTrue(menu != null && menu.slots.size() == 90, "Private cloud menu did not open with 54 visible slots");
+        helper.assertTrue(menu != null && menu.slots.stream().filter(slot -> slot instanceof com.oritong.cloudstorage.inventory.SlotCloudChest).count() == 54
+                && menu.craftingStart() == 90, "Private cloud menu did not open with 54 storage slots and 36 player slots");
         menu.sort(com.oritong.cloudstorage.inventory.ItemSorting::defaultCompare);
         int diamonds = 0;
         int balloons = 0;
