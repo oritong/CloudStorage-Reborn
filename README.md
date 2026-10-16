@@ -32,6 +32,10 @@
 
 普通点击合成结果仍会拿到鼠标上。每次 Shift 点击最多执行 64 次合成，避免材料较多时一次操作占用太长时间。不需要安装 AE2。
 
+### 云端锻造台与切石机
+
+锻造台和切石机也可以上传到云端。第一次上传会在左侧解锁对应按钮；重复上传只会把方块作为普通物品放入云存储，云端已满时销毁，不会再增加面板。锻造台使用原版锻造配方，保留模板、基础物品和添加物三格输入；切石机使用原版切石配方，并可用右侧上下按钮切换同一输入对应的多个结果。输入、配方索引和功能解锁都会随云库存保存，上传多个也不会额外加速或复制工作台。
+
 开启超越维度联动时，已解锁功能方块的云箱会保留云端终端，方便使用合成区；原有的后台转存仍按配置运行，合成格里的材料不会被转存。
 
 ### 漏斗与自动化
@@ -169,7 +173,7 @@ Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -Pmouse
 
 熔炉检查使用 `-PfurnaceSmokeTest runClient`，会检查四档槽位、界面内升级、实际 Shift 存取、跨配方熔炼、自动输出和开关同步，并保存不同尺寸的界面截图。
 
-目前基础测试集有 41 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、IO 权限、真实漏斗传输、满仓掉落物收集、熔炉并行与燃料消耗、进度保存和重复上传等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前基础测试集有 44 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、锻造台、切石机、IO 权限、真实漏斗传输、满仓掉落物收集、熔炉并行与燃料消耗、进度保存和重复上传等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -204,6 +208,10 @@ The three switches on the right start disabled and are saved with the cloud inve
 - **Store in cloud** changes the Shift crafting destination. Off: inventory first, cloud storage for overflow. On: cloud storage first, inventory for overflow. Crafting stops if neither destination has enough combined room for a complete result, leaving the ingredients intact.
 
 An ordinary click still picks the result up on your cursor. Each Shift click performs at most 64 crafts to keep large batches from holding up the server. AE2 is not required.
+
+### Cloud Smithing And Stonecutting
+
+Smithing tables and stonecutters can also be sent up with balloons. The first upload unlocks the matching sidebar button; extra copies are stored as ordinary items and discarded when the cloud is full. They do not add more panels or speed up processing. The smithing panel uses vanilla smithing recipes with template, base and addition inputs. The stonecutter uses vanilla stonecutting recipes and provides small previous/next controls when one input has multiple results. Inputs, the selected stonecutting recipe and the unlocks are saved with the cloud inventory.
 
 With Beyond Dimensions integration enabled, clouds with an unlocked functional block keep the cloud terminal so the crafting grid remains accessible. Background transfers still follow the configured interval and leave crafting ingredients alone.
 
@@ -342,7 +350,7 @@ Use `-PcraftingSmokeTest runClient` for the crafting check. `-PioSmokeTest runCl
 
 Use `-PfurnaceSmokeTest runClient` to check all four slot tiers, live upgrades, actual Shift transfers, parallel recipes, automatic output and switch synchronization. It also saves screenshots at different GUI sizes.
 
-The base suite contains 41 server GameTests covering saves, capacity, container transfers, menus, recipes, crafting, IO permissions, real hopper transfers, collection with full storage, furnace parallelism and fuel use, saved progress, and duplicate uploads. Separate client checks cover searches, Shift ordering, rendering and interaction. The parameters above load local mods for MI, Mekanism, Mouse Tweaks and Beyond Dimensions integration checks. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+The base suite contains 44 server GameTests covering saves, capacity, container transfers, menus, recipes, crafting, smithing, stonecutting, IO permissions, real hopper transfers, collection with full storage, furnace parallelism and fuel use, saved progress, and duplicate uploads. Separate client checks cover searches, Shift ordering, rendering and interaction. The parameters above load local mods for MI, Mekanism, Mouse Tweaks and Beyond Dimensions integration checks. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

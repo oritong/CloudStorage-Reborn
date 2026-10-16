@@ -9,7 +9,9 @@ import net.minecraft.world.level.block.state.BlockState;
 public enum CloudFunction {
     CRAFTING_TABLE("crafting_table", Blocks.CRAFTING_TABLE),
     HOPPER("hopper", Blocks.HOPPER),
-    FURNACE("furnace", Blocks.FURNACE);
+    FURNACE("furnace", Blocks.FURNACE),
+    SMITHING_TABLE("smithing_table", Blocks.SMITHING_TABLE),
+    STONECUTTER("stonecutter", Blocks.STONECUTTER);
 
     private final ResourceLocation id;
     private final Block block;

@@ -127,6 +127,15 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                         ItemStack.EMPTY, 4 + i, enabled[i], button -> sendButton(400 + option)));
             }
         }
+        if (menu.isStonecutterOpen()) {
+            int panelY = topPos + 18 + visibleRows * 18;
+            addRenderableWidget(new CloudCraftingButton(leftPos + 174, panelY + 17, 14,
+                    Component.translatable("cloudstorage_reborn.stonecutter.previous"), ItemStack.EMPTY, 1, false,
+                    button -> sendButton(500)));
+            addRenderableWidget(new CloudCraftingButton(leftPos + 174, panelY + 34, 14,
+                    Component.translatable("cloudstorage_reborn.stonecutter.next"), ItemStack.EMPTY, 2, false,
+                    button -> sendButton(501)));
+        }
         scrollRow = Math.min(scrollRow, maxScrollRow());
         updateDisplay();
     }
@@ -137,6 +146,7 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         return menu.getFunctionMask() | (menu.isCraftingOpen() ? 256 : 0) | (menu.isIOOpen() ? 4096 : 0)
                 | (menu.isAutoClear() ? 512 : 0) | (menu.isAutoPull() ? 1024 : 0) | (menu.isCraftToCloud() ? 2048 : 0)
                 | (menu.isCollectingDrops() ? 8192 : 0) | (menu.isFurnaceOpen() ? 16384 : 0)
+                | (menu.isSmithingOpen() ? 32768 : 0) | (menu.isStonecutterOpen() ? 65536 : 0)
                 | (menu.getFurnace().flags() << 16) | (menu.getFurnace().count() << 20);
     }
 
@@ -330,6 +340,22 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             graphics.fill(leftPos + 8, barY, leftPos + 8 + 156 * furnace.progressScale() / 1000, barY + 5, 0xFFDB922F);
             graphics.drawString(font, Component.translatable("cloudstorage_reborn.furnace.running", furnace.active(), furnace.count()),
                     leftPos + 8, barY + 7, 4210752, false);
+        }
+        if (menu.isSmithingOpen()) {
+            graphics.drawString(font, Component.translatable("cloudstorage_reborn.smithing.title"), leftPos + 8, topPos + gridEnd + 5, 4210752, false);
+            for (int i = 0; i < 4; i++) {
+                Slot slot = menu.slots.get(menu.smithingStart() + i);
+                graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
+            }
+            graphics.drawString(font, "→", leftPos + 100, topPos + gridEnd + 40, 4210752, false);
+        }
+        if (menu.isStonecutterOpen()) {
+            graphics.drawString(font, Component.translatable("cloudstorage_reborn.stonecutter.title"), leftPos + 8, topPos + gridEnd + 5, 4210752, false);
+            for (int i = 0; i < 2; i++) {
+                Slot slot = menu.slots.get(menu.stonecutterStart() + i);
+                graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
+            }
+            graphics.drawString(font, "→", leftPos + 82, topPos + gridEnd + 40, 4210752, false);
         }
         graphics.blit(TEXTURE, leftPos, topPos + gridEnd + menu.getPanelHeight(), 0, 126, imageWidth, 96);
         if (menu.getPanelHeight() > 0) graphics.fill(leftPos + 173, topPos + gridEnd + menu.getPanelHeight(),

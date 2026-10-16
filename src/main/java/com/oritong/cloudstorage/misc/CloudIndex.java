@@ -4,6 +4,7 @@ import com.oritong.cloudstorage.inventory.CloudChestContainer;
 import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import com.oritong.cloudstorage.inventory.CloudCraftingContainer;
 import com.oritong.cloudstorage.inventory.CloudFurnace;
+import com.oritong.cloudstorage.inventory.CloudStations;
 import com.oritong.cloudstorage.CloudStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.nbt.CompoundTag;
@@ -23,6 +24,7 @@ public class CloudIndex {
     private int functions;
     private final CloudCraftingContainer crafting = new CloudCraftingContainer();
     private final CloudFurnace furnace = new CloudFurnace();
+    private final CloudStations stations = new CloudStations();
     private boolean autoClear;
     private boolean autoPull;
     private boolean craftToCloud;
@@ -59,6 +61,7 @@ public class CloudIndex {
         craftToCloud = innerTag.getBoolean("CraftingToCloud");
         furnace.load(innerTag.getCompound("Furnace"), registries);
         if (furnace.count() > 0) unlock(CloudFunction.FURNACE);
+        stations.load(innerTag.getCompound("Stations"), registries);
     }
 
     public void writeToNBT(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
@@ -80,6 +83,7 @@ public class CloudIndex {
         tag.putBoolean("CraftingAutoPull", autoPull);
         tag.putBoolean("CraftingToCloud", craftToCloud);
         tag.put("Furnace", furnace.save(registries));
+        tag.put("Stations", stations.save(registries));
     }
 
     public void resize(int newSize){
@@ -131,6 +135,7 @@ public class CloudIndex {
     public int functionMask() { return functions; }
     public CloudCraftingContainer getCrafting() { return crafting; }
     public CloudFurnace getFurnace() { return furnace; }
+    public CloudStations getStations() { return stations; }
     public boolean uploadFunction(CloudFunction function) {
         if (function == CloudFunction.FURNACE) {
             if (!furnace.upload()) return false;

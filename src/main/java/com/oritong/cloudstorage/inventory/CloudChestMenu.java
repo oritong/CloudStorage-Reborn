@@ -31,6 +31,9 @@ import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.FurnaceResultSlot;
 import net.minecraft.world.item.crafting.CraftingInput;
+import net.minecraft.world.item.crafting.SmithingRecipeInput;
+import net.minecraft.world.item.crafting.StonecutterRecipe;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -74,7 +77,12 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private boolean craftingOpen;
     private boolean ioOpen;
     private boolean furnaceOpen;
+    private boolean smithingOpen;
+    private boolean stonecutterOpen;
     private final CloudFurnace furnace;
+    private final CloudStations stations;
+    private final ResultContainer smithingResult = new ResultContainer();
+    private final ResultContainer stonecutterResult = new ResultContainer();
     private AbstractCloudChestBlockEntity chest;
     private BlockPos clientChestPos;
     private Direction clientChestFront = Direction.NORTH;
@@ -102,6 +110,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
         this.fluidStorage = cloud == null ? null : cloud.getFluids();
         this.crafting = cloud == null ? new CloudCraftingContainer() : cloud.getCrafting();
         this.furnace = cloud == null ? new CloudFurnace() : cloud.getFurnace();
+        this.stations = cloud == null ? new CloudStations() : cloud.getStations();
         containerIn.startOpen(playerInv.player);
         int clampedSize = Math.min(containerIn.getContainerSize(), 54);
 
@@ -124,6 +133,10 @@ public class CloudChestMenu extends AbstractContainerMenu {
         for (int i = 0; i < 9; i++) addSlot(craftingSlot(i, 30 + i % 3 * 18, 144 + i / 3 * 18));
         addSlot(new CloudResultSlot(124, 162));
         for (int i = 0; i < 27; i++) addSlot(furnaceSlot(i, -1000, -1000));
+        for (int i = 0; i < 3; i++) addSlot(stationInputSlot(stations.smithing(), i, true, -1000, -1000));
+        addSlot(new StationResultSlot(smithingResult, true, -1000, -1000));
+        addSlot(stationInputSlot(stations.stonecutter(), 0, false, -1000, -1000));
+        addSlot(new StationResultSlot(stonecutterResult, false, -1000, -1000));
         addDataSlot(new DataSlot() {
             @Override public int get() { return craftingFlags(); }
             @Override public void set(int value) { clientCraftingFlags = value; }
@@ -148,11 +161,16 @@ public class CloudChestMenu extends AbstractContainerMenu {
             @Override public int get() { return furnace.progressScale(); }
             @Override public void set(int value) { furnace.setClientProgress(value); }
         });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return stations.stoneRecipe(); }
+            @Override public void set(int value) { stations.setStoneRecipe(value); }
+        });
         craftingListener = ignored -> { observedCraftingRevision = -1; fluidChanged.run(); };
         if (!owner.level().isClientSide()) crafting.addListener(craftingListener);
         CloudStorage.PROXY.setVisibleCloudSlots(containerIn.getContainerSize());
         scrollTo(0.0F, false);
         updateCraftingResult();
+        updateStationResults();
     }
 
     public CloudChestMenu(int id, Inventory playerInv, CloudIndex cloud, CSWorldData data) {
@@ -167,16 +185,25 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private int craftingFlags() {
         if (cloud == null) return clientCraftingFlags;
         return cloud.functionMask() | (craftingOpen ? 256 : 0) | (cloud.autoClear() ? 512 : 0)
-                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0) | (ioOpen ? 4096 : 0) | (furnaceOpen ? 8192 : 0);
+                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0) | (ioOpen ? 4096 : 0)
+                | (furnaceOpen ? 8192 : 0) | (smithingOpen ? 16384 : 0) | (stonecutterOpen ? 32768 : 0);
     }
     public int getFunctionMask() { return craftingFlags() & 255; }
     public boolean hasFunction(CloudFunction function) { return (getFunctionMask() & function.mask()) != 0; }
     public boolean isCraftingOpen() { return hasFunction(CloudFunction.CRAFTING_TABLE) && (craftingFlags() & 256) != 0; }
     public boolean isIOOpen() { return hasFunction(CloudFunction.HOPPER) && (craftingFlags() & 4096) != 0; }
     public boolean isFurnaceOpen() { return hasFunction(CloudFunction.FURNACE) && (craftingFlags() & 8192) != 0; }
-    public int getPanelHeight() { return isCraftingOpen() ? 78 : isIOOpen() ? 84 : isFurnaceOpen() ? furnace.rows() * 18 + 52 : 0; }
+    public boolean isSmithingOpen() { return hasFunction(CloudFunction.SMITHING_TABLE) && (craftingFlags() & 16384) != 0; }
+    public boolean isStonecutterOpen() { return hasFunction(CloudFunction.STONECUTTER) && (craftingFlags() & 32768) != 0; }
+    public int getPanelHeight() { return isCraftingOpen() || isSmithingOpen() || isStonecutterOpen() ? 78 : isIOOpen() ? 84 : isFurnaceOpen() ? furnace.rows() * 18 + 52 : 0; }
     public boolean isFunctionOpen(CloudFunction function) {
-        return switch (function) { case CRAFTING_TABLE -> isCraftingOpen(); case HOPPER -> isIOOpen(); case FURNACE -> isFurnaceOpen(); };
+        return switch (function) {
+            case CRAFTING_TABLE -> isCraftingOpen();
+            case HOPPER -> isIOOpen();
+            case FURNACE -> isFurnaceOpen();
+            case SMITHING_TABLE -> isSmithingOpen();
+            case STONECUTTER -> isStonecutterOpen();
+        };
     }
     public int getIOSettings() { return chest == null ? clientIOSettings : chest.automation().settings(); }
     public int getIOMode(CloudIOSide side) { return side == CloudIOSide.TOP ? 0 : (getIOSettings() >> (side.ordinal() * 2)) & 3; }
@@ -192,12 +219,21 @@ public class CloudChestMenu extends AbstractContainerMenu {
     public CloudCraftingContainer getCrafting() { return crafting; }
     public int furnaceStart() { return craftingStart() + 10; }
     public CloudFurnace getFurnace() { return furnace; }
+    public int smithingStart() { return furnaceStart() + 27; }
+    public int stonecutterStart() { return smithingStart() + 4; }
+    public CloudStations getStations() { return stations; }
 
     @Override public boolean clickMenuButton(Player player, int button) {
         if (player != owner || player.level().isClientSide() || cloud == null || !stillValid(player)) return false;
         if (button >= 400 && button <= 402) {
             if (!isFurnaceOpen()) return false;
             furnace.toggle(button - 400);
+        } else if (button == 500 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
+            stations.setStoneRecipe(stations.stoneRecipe() - 1);
+            updateStationResults();
+        } else if (button == 501 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
+            stations.setStoneRecipe(stations.stoneRecipe() + 1);
+            updateStationResults();
         } else if (button >= 300) {
             if (!isIOOpen() || chest == null || chest.isRemoved() || chest.getLevel() != player.level()
                     || player.distanceToSqr(chest.getBlockPos().getCenter()) > 64
@@ -217,14 +253,32 @@ public class CloudChestMenu extends AbstractContainerMenu {
             craftingOpen = !craftingOpen;
             ioOpen = false;
             furnaceOpen = false;
+            smithingOpen = false;
+            stonecutterOpen = false;
         } else if (button == 101 && hasFunction(CloudFunction.HOPPER)) {
             ioOpen = !ioOpen;
             craftingOpen = false;
             furnaceOpen = false;
+            smithingOpen = false;
+            stonecutterOpen = false;
         } else if (button == 102 && hasFunction(CloudFunction.FURNACE)) {
             furnaceOpen = !furnaceOpen;
             craftingOpen = false;
             ioOpen = false;
+            smithingOpen = false;
+            stonecutterOpen = false;
+        } else if (button == 103 && hasFunction(CloudFunction.SMITHING_TABLE)) {
+            smithingOpen = !smithingOpen;
+            craftingOpen = false;
+            ioOpen = false;
+            furnaceOpen = false;
+            stonecutterOpen = false;
+        } else if (button == 104 && hasFunction(CloudFunction.STONECUTTER)) {
+            stonecutterOpen = !stonecutterOpen;
+            craftingOpen = false;
+            ioOpen = false;
+            furnaceOpen = false;
+            smithingOpen = false;
         } else if (button >= 200 && button <= 202 && hasFunction(CloudFunction.CRAFTING_TABLE)) {
             switch (button) {
                 case 200 -> cloud.setAutoClear(!cloud.autoClear());
@@ -270,6 +324,41 @@ public class CloudChestMenu extends AbstractContainerMenu {
         };
     }
 
+    private Slot stationInputSlot(Container station, int index, boolean smithing, int x, int y) {
+        return new Slot(station, index, x, y) {
+            @Override public boolean isActive() { return smithing ? isSmithingOpen() : isStonecutterOpen(); }
+            @Override public boolean mayPlace(ItemStack stack) {
+                if (!isActive()) return false;
+                if (!smithing) return !stack.isEmpty() && owner.level().getRecipeManager()
+                        .getRecipesFor(RecipeType.STONECUTTING, new SingleRecipeInput(stack), owner.level()).size() > 0;
+                return owner.level().getRecipeManager().getAllRecipesFor(RecipeType.SMITHING).stream().anyMatch(holder ->
+                        index == 0 ? holder.value().isTemplateIngredient(stack) : index == 1 ? holder.value().isBaseIngredient(stack) : holder.value().isAdditionIngredient(stack));
+            }
+            @Override public boolean mayPickup(Player player) { return isActive() && player == owner; }
+            @Override public void setChanged() { super.setChanged(); fluidChanged.run(); }
+        };
+    }
+
+    private final class StationResultSlot extends Slot {
+        private final boolean smithing;
+        StationResultSlot(Container result, boolean smithing, int x, int y) {
+            super(result, 0, x, y);
+            this.smithing = smithing;
+        }
+        @Override public boolean isActive() { return smithing ? isSmithingOpen() : isStonecutterOpen(); }
+        @Override public boolean mayPlace(ItemStack stack) { return false; }
+        @Override public boolean mayPickup(Player player) { return isActive() && player == owner && hasItem(); }
+        @Override public void onTake(Player player, ItemStack stack) {
+            if (owner.level().isClientSide()) return;
+            if (smithing) {
+                for (int i = 0; i < 3; i++) stations.smithing().removeItem(i, 1);
+            } else stations.stonecutter().removeItem(0, 1);
+            stack.getItem().onCraftedBy(stack, player.level(), player);
+            updateStationResults();
+            fluidChanged.run();
+        }
+    }
+
     /** Slot coordinates are final in vanilla; replace only the views when the screen is resized. */
     public void layoutSlots(int rows) {
         int offset = (rows - 6) * 18 + getPanelHeight();
@@ -296,6 +385,21 @@ public class CloudChestMenu extends AbstractContainerMenu {
             replacement.index = furnaceStart() + i;
             slots.set(replacement.index, replacement);
         }
+        int stationY = gridY + 18;
+        for (int i = 0; i < 3; i++) {
+            Slot replacement = stationInputSlot(stations.smithing(), i, true, 30 + i * 18, stationY);
+            replacement.index = smithingStart() + i;
+            slots.set(replacement.index, replacement);
+        }
+        Slot smithResult = new StationResultSlot(smithingResult, true, 124, stationY + 9);
+        smithResult.index = smithingStart() + 3;
+        slots.set(smithResult.index, smithResult);
+        Slot stoneInput = stationInputSlot(stations.stonecutter(), 0, false, 64, stationY);
+        stoneInput.index = stonecutterStart();
+        slots.set(stoneInput.index, stoneInput);
+        Slot stoneResult = new StationResultSlot(stonecutterResult, false, 106, stationY);
+        stoneResult.index = stonecutterStart() + 1;
+        slots.set(stoneResult.index, stoneResult);
     }
 
     private void updateCraftingResult() {
@@ -311,6 +415,34 @@ public class CloudChestMenu extends AbstractContainerMenu {
             } else craftingResult.setRecipeUsed(null);
         }
         craftingResult.setItem(0, output);
+    }
+
+    private void updateStationResults() {
+        if (owner.level().isClientSide()) return;
+        ItemStack smithOutput = ItemStack.EMPTY;
+        var smithInput = new SmithingRecipeInput(stations.smithing().getItem(0), stations.smithing().getItem(1), stations.smithing().getItem(2));
+        var smithRecipes = owner.level().getRecipeManager().getRecipesFor(RecipeType.SMITHING, smithInput, owner.level());
+        if (hasFunction(CloudFunction.SMITHING_TABLE) && !smithRecipes.isEmpty()) {
+            var recipe = smithRecipes.get(0);
+            smithOutput = recipe.value().assemble(smithInput, owner.level().registryAccess());
+            smithingResult.setRecipeUsed(recipe);
+        } else smithingResult.setRecipeUsed(null);
+        smithingResult.setItem(0, smithOutput);
+
+        ItemStack stoneOutput = ItemStack.EMPTY;
+        var stoneInput = new SingleRecipeInput(stations.stonecutter().getItem(0));
+        var stoneRecipes = owner.level().getRecipeManager().getRecipesFor(RecipeType.STONECUTTING, stoneInput, owner.level());
+        if (hasFunction(CloudFunction.STONECUTTER) && !stoneRecipes.isEmpty()) {
+            int index = Math.clamp(stations.stoneRecipe(), 0, stoneRecipes.size() - 1);
+            stations.setStoneRecipe(index);
+            var recipe = stoneRecipes.get(index);
+            stoneOutput = recipe.value().assemble(stoneInput, owner.level().registryAccess());
+            stonecutterResult.setRecipeUsed(recipe);
+        } else {
+            stations.setStoneRecipe(0);
+            stonecutterResult.setRecipeUsed(null);
+        }
+        stonecutterResult.setItem(0, stoneOutput);
     }
 
     private void pullIngredients() {
@@ -456,6 +588,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
                 lastPullCraftingRevision = crafting.revision();
             }
             updateCraftingResult();
+            updateStationResults();
         }
         super.broadcastChanges();
         if (!owner.level().isClientSide()) refreshTerminal(false);
@@ -589,8 +722,10 @@ public class CloudChestMenu extends AbstractContainerMenu {
             updateCraftingResult();
             if (type == ClickType.QUICK_MOVE) { quickCraft(player); return; }
         }
+        if (slotId == smithingStart() + 3 || slotId == stonecutterStart() + 1) updateStationResults();
         super.clicked(slotId, button, type, player);
         updateCraftingResult();
+        updateStationResults();
     }
 
     public static boolean matchesSearch(Player player, String search, ItemStack stack) {
@@ -657,6 +792,34 @@ public class CloudChestMenu extends AbstractContainerMenu {
         if (player != owner || slotIndex < cloudSlotCount() || slotIndex >= slots.size()) return ItemStack.EMPTY;
         if (slotIndex == craftingResultSlot()) return quickCraft(player);
         if (slotIndex >= craftingStart() && !slots.get(slotIndex).isActive()) return ItemStack.EMPTY;
+        if (isSmithingOpen() || isStonecutterOpen()) {
+            Slot source = slots.get(slotIndex);
+            if (!source.hasItem()) return ItemStack.EMPTY;
+            ItemStack stack = source.getItem(), original = stack.copy();
+            int stationEnd = stonecutterStart() + 2;
+            if (slotIndex >= smithingStart() && slotIndex < stationEnd) {
+                moveItemStackTo(stack, cloudSlotCount(), playerSlotEnd(), true);
+                if (!stack.isEmpty()) moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+            } else if (isSmithingOpen()) {
+                boolean moved = false;
+                for (int i = 0; i < 3; i++) if (slots.get(smithingStart() + i).mayPlace(stack)) {
+                    moved |= moveItemStackTo(stack, smithingStart() + i, smithingStart() + i + 1, false);
+                    if (stack.isEmpty()) break;
+                }
+                if (!stack.isEmpty()) moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+                if (!moved && stack.getCount() == original.getCount()) return ItemStack.EMPTY;
+            } else {
+                if (slots.get(stonecutterStart()).mayPlace(stack)) moveItemStackTo(stack, stonecutterStart(), stonecutterStart() + 1, false);
+                if (!stack.isEmpty()) moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+            }
+            if (original.getCount() == stack.getCount()) return ItemStack.EMPTY;
+            int moved = original.getCount() - stack.getCount();
+            if (stack.isEmpty()) source.set(ItemStack.EMPTY); else source.setChanged();
+            source.onTake(player, original.copyWithCount(moved));
+            updateStationResults();
+            fluidChanged.run();
+            return original;
+        }
         if (isFurnaceOpen()) {
             Slot source = slots.get(slotIndex);
             if (!source.hasItem()) return ItemStack.EMPTY;
