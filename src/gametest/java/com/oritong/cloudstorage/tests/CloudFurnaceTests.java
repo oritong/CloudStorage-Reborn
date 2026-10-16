@@ -172,6 +172,22 @@ public final class CloudFurnaceTests {
     }
 
     @GameTest(template = "empty")
+    public static void priorityFuelChoosesLargestCloudFuel(GameTestHelper helper) {
+        var cloud = cloud(1, 4);
+        var furnace = cloud.getFurnace();
+        cloud.getContainer().setItem(0, new ItemStack(Items.COAL, 2));
+        cloud.getContainer().setItem(1, new ItemStack(Items.CHARCOAL, 32));
+        furnace.setItem(0, new ItemStack(Items.RAW_IRON));
+        furnace.setPriorityFuel(true);
+        tick(helper, cloud, 8);
+        helper.assertTrue(furnace.getItem(9).is(Items.CHARCOAL) && furnace.getItem(9).getCount() == 31,
+                "Priority fuel mode did not choose the largest valid fuel stack");
+        helper.assertTrue(cloud.getContainer().countItem(Items.CHARCOAL) == 0 && cloud.getContainer().countItem(Items.COAL) == 2,
+                "Priority fuel mode ignored total remaining quantities");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void progressPersistsAndRemovedInputsCannotDuplicate(GameTestHelper helper) {
         var cloud = cloud(2, 27);
         var furnace = cloud.getFurnace();
@@ -243,6 +259,10 @@ public final class CloudFurnaceTests {
         helper.assertTrue(menu.getCarried().isEmpty(), "Hidden higher-tier slot accepted a click");
         menu.clickMenuButton(player, 400); menu.clickMenuButton(player, 401); menu.clickMenuButton(player, 402);
         helper.assertTrue(cloud.getFurnace().flags() == 7, "Furnace toggles failed");
+        menu.clickMenuButton(player, 403);
+        helper.assertTrue(cloud.getFurnace().fuelMode() == 2 && cloud.getFurnace().flags() == 13, "Priority fuel button did not select purple mode");
+        menu.clickMenuButton(player, 401);
+        helper.assertTrue(cloud.getFurnace().fuelMode() == 1 && cloud.getFurnace().flags() == 7, "Normal fuel toggle did not leave priority mode");
         menu.clicked(menu.furnaceStart(), 0, ClickType.PICKUP, player);
         helper.assertTrue(menu.getCarried().getCount() == 3 && cloud.getFurnace().getItem(0).isEmpty(), "Visible furnace inputs could not be retrieved");
         helper.assertTrue(menu.slots.get(menu.furnaceStart() + 9).getMaxStackSize(new ItemStack(Items.BUCKET, 64)) == 1,

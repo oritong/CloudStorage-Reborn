@@ -117,14 +117,21 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         }
         if (menu.isFurnaceOpen()) {
             var furnace = menu.getFurnace();
-            boolean[] enabled = { furnace.autoOutput(), furnace.autoFuel(), furnace.smeltIncoming() };
+            int[] states = { furnace.autoOutput() ? 1 : 0, furnace.fuelMode(), furnace.smeltIncoming() ? 1 : 0 };
             String[] names = { "auto_output", "auto_fuel", "smelt_incoming" };
             for (int i = 0; i < 3; i++) {
                 final int option = i;
+                Component value = i == 1
+                        ? Component.translatable("cloudstorage_reborn.furnace.fuel_mode." + switch (states[i]) {
+                            case 2 -> "priority";
+                            case 1 -> "normal";
+                            default -> "off";
+                        })
+                        : Component.translatable(states[i] != 0 ? "options.on" : "options.off");
                 addRenderableWidget(new CloudCraftingButton(leftPos + 174, topPos + 18 + visibleRows * 18 + 17 + i * 18,
                         14, Component.translatable("cloudstorage_reborn.furnace." + names[i],
-                        Component.translatable(enabled[i] ? "options.on" : "options.off")),
-                        ItemStack.EMPTY, 4 + i, enabled[i], button -> sendButton(400 + option)));
+                        value), ItemStack.EMPTY, 4 + i, states[i],
+                        button -> sendButton(option == 1 && hasShiftDown() ? 403 : 400 + option)));
             }
         }
         if (menu.isStonecutterOpen()) {

@@ -173,7 +173,7 @@ Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -Pmouse
 
 熔炉检查使用 `-PfurnaceSmokeTest runClient`，会检查四档槽位、界面内升级、实际 Shift 存取、跨配方熔炼、自动输出和开关同步，并保存不同尺寸的界面截图。
 
-目前基础测试集有 44 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、锻造台、切石机、IO 权限、真实漏斗传输、满仓掉落物收集、熔炉并行与燃料消耗、进度保存和重复上传等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+目前基础测试集有 45 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、锻造台、切石机、IO 权限、真实漏斗传输、满仓掉落物收集、熔炉并行与燃料消耗、进度保存和重复上传等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -252,7 +252,7 @@ Each lane uses ordinary furnace recipes and consumes fuel independently. Two fur
 The three switches on the right start disabled and are saved with the cloud inventory. Red means off; green means on:
 
 - **Auto output** moves results into cloud storage. Overflow stays in the output slots until space becomes available.
-- **Find fuel** refills valid fuels tagged `#cloudstorage:fuel` from cloud storage. The default tag contains coal and coal blocks. Data packs can extend `data/cloudstorage/tags/item/fuel.json`.
+- **Find fuel** refills valid fuels tagged `#cloudstorage:fuel` from cloud storage. The default tag contains coal and coal blocks. Data packs can extend `data/cloudstorage/tags/item/fuel.json`. Shift-left-click this button to turn it purple: the furnace then chooses the valid fuel with the largest remaining quantity in the cloud, ignoring the tag.
 - **Smelt incoming items** requires an uploaded hopper and an enabled input face on the physical chest. Incoming smeltable items enter the furnace first. Any remainder and other items go into cloud storage. Full destinations reject the transfer without discarding anything. This also works without uploaded item chests. The top face remains disabled.
 
 Automatic output and fuel refills run every 8 ticks. Shift-click ingredients or fuel in your inventory to insert them into the open furnace. Shift-click furnace items to take them into your inventory, with cloud storage accepting overflow. Taking results manually awards accumulated smelting experience. Ingredients, burning fuel and progress survive world saves, and processing continues after closing the screen. Players using the same public cloud share its furnace; opening more terminals does not speed it up. Furnaces do not add cloud item capacity.

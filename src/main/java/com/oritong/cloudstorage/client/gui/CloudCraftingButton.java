@@ -10,26 +10,34 @@ import net.minecraft.world.item.ItemStack;
 public final class CloudCraftingButton extends Button {
     private final ItemStack icon;
     private final int kind;
-    private final boolean selected;
+    private final int state;
 
     public CloudCraftingButton(int x, int y, int size, Component tooltip, ItemStack icon, int kind,
                                boolean selected, OnPress onPress) {
+        this(x, y, size, tooltip, icon, kind, selected ? 1 : 0, onPress);
+    }
+
+    public CloudCraftingButton(int x, int y, int size, Component tooltip, ItemStack icon, int kind,
+                               int state, OnPress onPress) {
         super(x, y, size, size, tooltip, onPress, DEFAULT_NARRATION);
         this.icon = icon;
         this.kind = kind;
-        this.selected = selected;
+        this.state = state;
         setTooltip(Tooltip.create(tooltip));
     }
 
     @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float tick) {
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
         boolean toggle = icon.isEmpty();
-        int highlight = toggle ? (selected ? 0xFF8FE6A5 : 0xFFF28C8C) : 0xFFFFFFFF;
+        boolean enabled = state != 0;
+        boolean priority = state == 2;
+        int highlight = toggle ? (priority ? 0xFFE3A8F5 : enabled ? 0xFF8FE6A5 : 0xFFF28C8C) : 0xFFFFFFFF;
         int background = toggle
-                ? (selected ? (isHoveredOrFocused() ? 0xFF42A65A : 0xFF31934D)
-                            : (isHoveredOrFocused() ? 0xFFD55353 : 0xFFBC4040))
+                ? (priority ? (isHoveredOrFocused() ? 0xFFB866C9 : 0xFF8D4AA5)
+                           : enabled ? (isHoveredOrFocused() ? 0xFF42A65A : 0xFF31934D)
+                                     : (isHoveredOrFocused() ? 0xFFD55353 : 0xFFBC4040))
                 : (isHoveredOrFocused() ? 0xFFDCE7ED : 0xFFC6C6C6);
-        int shadow = toggle ? (selected ? 0xFF1D5630 : 0xFF6C2323) : 0xFF777777;
+        int shadow = toggle ? (priority ? 0xFF54235F : enabled ? 0xFF1D5630 : 0xFF6C2323) : 0xFF777777;
         graphics.fill(x, y, x + w, y + h, 0xFF373737);
         graphics.fill(x + 1, y + 1, x + w - 1, y + h - 1, highlight);
         graphics.fill(x + 2, y + 2, x + w - 1, y + h - 1, background);
@@ -62,6 +70,6 @@ public final class CloudCraftingButton extends Button {
                         x + 11 - i, tipY + direction * i + 1, color);
             }
         }
-        if (!toggle && selected) graphics.fill(x - 6, y, x - 3, y + h, 0xFF26F500);
+        if (!toggle && enabled) graphics.fill(x - 6, y, x - 3, y + h, priority ? 0xFFC05CDE : 0xFF26F500);
     }
 }

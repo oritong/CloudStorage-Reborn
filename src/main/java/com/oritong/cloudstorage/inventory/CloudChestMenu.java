@@ -228,6 +228,9 @@ public class CloudChestMenu extends AbstractContainerMenu {
         if (button >= 400 && button <= 402) {
             if (!isFurnaceOpen()) return false;
             furnace.toggle(button - 400);
+        } else if (button == 403) {
+            if (!isFurnaceOpen()) return false;
+            furnace.setPriorityFuel(true);
         } else if (button == 500 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
             stations.setStoneRecipe(stations.stoneRecipe() - 1);
             updateStationResults();

@@ -49,11 +49,33 @@ public final class CloudFurnace extends CloudChestContainer {
     public int rows() { return slotsPerGroup() == 9 ? 3 : slotsPerGroup() >= 2 ? 2 : 1; }
     public int columns() { return slotsPerGroup() == 9 ? 3 : slotsPerGroup() == 4 ? 2 : 1; }
     public int flags() { return flags; }
-    public void setFlags(int value) { flags = value & 7; }
+    public void setFlags(int value) {
+        flags = value & 15;
+        if ((flags & 8) != 0) flags &= ~2;
+    }
     public boolean autoOutput() { return (flags & 1) != 0; }
-    public boolean autoFuel() { return (flags & 2) != 0; }
+    public boolean autoFuel() { return fuelMode() != 0; }
+    public int fuelMode() { return (flags & 8) != 0 ? 2 : ((flags & 2) != 0 ? 1 : 0); }
     public boolean smeltIncoming() { return (flags & 4) != 0; }
-    public void toggle(int option) { flags ^= 1 << option; setChanged(); }
+    public void toggle(int option) {
+        if (option == 1) {
+            toggleAutoFuel();
+            return;
+        }
+        flags ^= 1 << option;
+        setChanged();
+    }
+    public void toggleAutoFuel() {
+        if (fuelMode() == 0) flags |= 2;
+        else if (fuelMode() == 1) flags &= ~2;
+        else flags = (flags & ~8) | 2;
+        setChanged();
+    }
+    public void setPriorityFuel(boolean enabled) {
+        if (enabled) flags = (flags & ~2) | 8;
+        else flags &= ~8;
+        setChanged();
+    }
     public int active() { return active; }
     public void setActive(int value) { active = value; }
     public int progressScale() {
@@ -90,11 +112,25 @@ public final class CloudFurnace extends CloudChestContainer {
             if (stack.isEmpty() || isFuel(stack) && stack.getCount() < Math.min(getMaxStackSize(stack), stack.getMaxStackSize())) { room = true; break; }
         }
         if (!room) return;
+        int source = -1;
+        long bestAmount = -1;
         for (int i = 0; i < cloud.getContainerSize(); i++) {
             ItemStack stack = cloud.getItem(i);
-            if (!stack.is(AUTO_FUEL) || !isFuel(stack)) continue;
+            if (!isFuel(stack) || fuelMode() == 1 && !stack.is(AUTO_FUEL)) continue;
+            long total = 0;
+            for (int j = i; j < cloud.getContainerSize(); j++) {
+                ItemStack other = cloud.getItem(j);
+                if (ItemStack.isSameItemSameComponents(stack, other)) total += other.getCount();
+            }
+            if (total > bestAmount) {
+                bestAmount = total;
+                source = i;
+            }
+        }
+        if (source >= 0) {
+            ItemStack stack = cloud.getItem(source);
             ItemStack remaining = insert(this, FUEL, slotsPerGroup(), stack, false);
-            if (remaining.getCount() != stack.getCount()) cloud.setItem(i, remaining);
+            if (remaining.getCount() != stack.getCount()) cloud.setItem(source, remaining);
         }
     }
     private int lightBurner(Container cloud) {
