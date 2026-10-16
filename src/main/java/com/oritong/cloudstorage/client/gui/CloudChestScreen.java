@@ -288,9 +288,9 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         if (menu.isCraftingOpen()) graphics.fill(leftPos + 173, topPos + gridEnd + 78,
                 leftPos + 190, topPos + gridEnd + 83, 0xFFC6C6C6);
         if (menu.getFunctionMask() != 0) {
-            graphics.fill(leftPos - 34, topPos + 2, leftPos - 2, topPos + imageHeight - 2, 0xFF373737);
-            graphics.fill(leftPos - 33, topPos + 3, leftPos - 3, topPos + imageHeight - 3, 0xFFFFFFFF);
-            graphics.fill(leftPos - 31, topPos + 5, leftPos - 4, topPos + imageHeight - 4, 0xFFC6C6C6);
+            graphics.fill(leftPos - 38, topPos + 2, leftPos - 2, topPos + imageHeight - 2, 0xFF373737);
+            graphics.fill(leftPos - 37, topPos + 3, leftPos - 3, topPos + imageHeight - 3, 0xFFFFFFFF);
+            graphics.fill(leftPos - 35, topPos + 5, leftPos - 4, topPos + imageHeight - 4, 0xFFC6C6C6);
         }
         int hovered = gridIndex(mouseX, mouseY);
         for (int visible = 0; visible < visibleRows * 9; visible++) {

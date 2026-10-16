@@ -24,7 +24,7 @@ public final class CloudCraftingButton extends Button {
     @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float tick) {
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
         boolean toggle = icon.isEmpty();
-        int highlight = toggle ? (selected ? 0xFF8FE6A5 : 0xFFF28C8C) : (selected ? 0xFF74A6CA : 0xFFFFFFFF);
+        int highlight = toggle ? (selected ? 0xFF8FE6A5 : 0xFFF28C8C) : 0xFFFFFFFF;
         int background = toggle
                 ? (selected ? (isHoveredOrFocused() ? 0xFF42A65A : 0xFF31934D)
                             : (isHoveredOrFocused() ? 0xFFD55353 : 0xFFBC4040))
@@ -52,6 +52,6 @@ public final class CloudCraftingButton extends Button {
                         x + 11 - i, tipY + direction * i + 1, color);
             }
         }
-        if (!toggle && selected) graphics.fill(x + 2, y + h - 3, x + w - 2, y + h - 2, 0xFF398652);
+        if (!toggle && selected) graphics.fill(x - 6, y, x - 3, y + h, 0xFF26F500);
     }
 }
