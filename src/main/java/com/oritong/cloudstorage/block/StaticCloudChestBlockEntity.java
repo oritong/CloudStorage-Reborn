@@ -9,13 +9,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.items.wrapper.InvWrapper;
 
 import javax.annotation.Nullable;
 
@@ -23,13 +21,6 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
 
     private static final Component CONTAINER_TITLE = Component.translatable("cloudstorage_reborn.container.static_cloud_chest");
     private int balloonColor = -1;
-    private final Container emptyInventory = new net.minecraft.world.SimpleContainer(0);
-    private final InvWrapper cloudHandler = new InvWrapper(emptyInventory) {
-        @Override public Container getInv() {
-            Container current = isRemoved() ? null : getCloudContainer();
-            return current == null ? emptyInventory : current;
-        }
-    };
 
     public StaticCloudChestBlockEntity(BlockPos pos, BlockState state) {
         super(CSBlockEntityRegistry.STATIC_CLOUD_CHEST.get(), pos, state);
@@ -60,7 +51,7 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
         if (data != null && this.hasBalloonFor(player)) {
             CloudIndex cloudIndex = data.getPublicCloud(this.getBalloonFor(player));
             if (cloudIndex != null && cloudIndex.hasStorage()) {
-                return new CloudChestMenu(i, playerInventory, cloudIndex, data);
+                return new CloudChestMenu(i, playerInventory, cloudIndex, data, this);
             }
         }
         return null;
@@ -93,16 +84,13 @@ public class StaticCloudChestBlockEntity extends AbstractCloudChestBlockEntity {
     }
 
     public net.neoforged.neoforge.items.IItemHandler getItemHandler(@Nullable Direction side) {
-        return side != null && balloonColor != -1 && !isRemoved() ? cloudHandler : null;
+        return automation().itemHandler(side);
     }
 
-    private Container getCloudContainer(){
+    @Override public CloudIndex getAutomationCloud(java.util.UUID owner) {
         CSWorldData data = CSWorldData.get(getLevel());
         if (data != null && this.hasBalloonFor(null)) {
-            CloudIndex cloudIndex = data.getPublicCloud(this.getBalloonFor(null));
-            if (cloudIndex != null && cloudIndex.getContainerSize() > 0) {
-                return cloudIndex.getContainer();
-            }
+            return data.getPublicCloud(this.getBalloonFor(null));
         }
         return null;
     }

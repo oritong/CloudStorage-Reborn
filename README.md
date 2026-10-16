@@ -14,7 +14,7 @@
 
 普通气球对应私人云库存储，颜色相同的气球连接同一份库存。把更多箱子送上去，就能继续扩容。普通云箱像末影箱一样，只能由对应玩家访问。
 
-想共享库存或接入漏斗，就用静电气球和静电云箱。它们连接公共库存，也支持自动化。云箱需要能看到天空，地下和下界无法使用。
+想共享库存，就用静电气球和静电云箱，它们连接同色公共库存。普通云箱和静电云箱都可以在上传漏斗后接入自动化。云箱需要能看到天空，地下和下界无法使用。
 
 模组里还保留了气球箭、气球伙伴、吹云器和天空建筑。第一次玩可以先合成指南书，里面有配方和玩法说明。
 
@@ -33,6 +33,25 @@
 普通点击合成结果仍会拿到鼠标上。每次 Shift 点击最多执行 64 次合成，避免材料较多时一次操作占用太长时间。不需要安装 AE2。
 
 开启超越维度联动时，已解锁功能方块的云箱会保留云端终端，方便使用合成区；原有的后台转存仍按配置运行，合成格里的材料不会被转存。
+
+### 漏斗与自动化
+
+把漏斗绑上气球送上天，就能为对应的云库存解锁 IO 功能。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。上传一次就够了，重复上传没有额外效果，也不会增加物品槽位。漏斗里装着的物品会一起存入云端，放不下的退回背包；玩家离线时则掉在上传位置。
+
+解锁后，左侧会出现漏斗按钮。点击它，在云库存和背包之间展开面配置；工作台和 IO 面板可以互相切换。各格对应云箱的正面、左右、背面、顶部和底部，有相邻方块时显示它的图标，没有方块时留空。颜色表示这个面的用途：
+
+- **红色**：仅输入。
+- **蓝色**：仅输出，由相邻漏斗或管道提取。
+- **紫色**：允许输入和输出。
+- **灰色**：禁止 IO。
+
+左键切到下一个模式，右键切回上一个模式，Shift 左键直接禁用这个面。**顶部固定禁止 IO，不能修改。** 右下角是批量配置按钮：各面模式一致时，左键或右键一起切换；模式不一致时先全部禁用，Shift 点击也会全部禁用。顶部不参与切换。
+
+面配置同时作用于物品和流体接口。存物品仍需上传箱子，存流体仍需上传储罐。使用 NeoForge 标准接口，不需要安装 Mekanism。IO 设置保存在每个实体云箱上，同一库存的不同云箱可以有不同配置，默认各面都禁用。更新前已经使用自动化的静电云箱，也需要上传漏斗并重新设置允许存取的面。
+
+普通云箱会使用**最后修改 IO 设置的玩家在这个箱子上绑定的库存**，不会因为其他玩家走近而切换；玩家离线后仍然有效，区块需要保持加载。静电云箱使用其连接的公共库存。
+
+右侧的**收集掉落物**开关默认关闭，红色为关闭，绿色为开启。开启后会把云箱正上方的掉落物放入云库存，装不下的部分留在原地。每 8 tick 检查一次，每次最多处理 32 个掉落物实体。收集不需要开启顶部 IO，也不会收集侧面或下方的物品。自动化与收集都遵循云箱原有的天空和上方留空条件。
 
 ### 流体存储
 
@@ -53,7 +72,7 @@
 fluid_storage = true
 ```
 
-改成 `false` 后，储罐上传、终端流体存取和向超越维度转存流体都会停用，已上传的容量、种类额度和流体数据会保留。私人流体库存按玩家 UUID 和气球颜色区分，静电库存按公共颜色区分，随世界保存。现阶段通过 GUI 存取，还没有流体管道接口。
+改成 `false` 后，储罐上传、终端及管道流体存取和向超越维度转存流体都会停用，已上传的容量、种类额度和流体数据会保留。私人流体库存按玩家 UUID 和气球颜色区分，静电库存按公共颜色区分，随世界保存。上传漏斗并配置云箱对应的面后，也可以通过流体管道存取。
 
 可上传储罐由方块标签 **`cloudstorage:fluid_storage`** 决定。数据包可通过 `data/cloudstorage/tags/block/fluid_storage.json` 追加其他模组的储罐；方块需要提供标准流体能力，目前支持空罐或只含一种流体的储罐。内置的七种 MI 储罐和四种 Mekanism 储罐都是可选标签项，不装对应模组也能正常加载。Mekanism 储罐上传时，输入/输出槽中的物品会随货物保存；云库存没有物品槽位时，多出的物品会退回玩家背包或掉落在脚边。
 
@@ -123,7 +142,9 @@ Linux 或 macOS 使用 `./gradlew build`。产物位于 `build/libs/cloudstorage
 
 Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -PmouseTweaksSmokeTest runClient`，会通过它的实际自定义界面处理器验证坐标识别、双向快速转移和连续请求。编译使用仓库内的独立 API 接口源码，运行时由 Mouse Tweaks 提供接口，成品不包含 Mouse Tweaks 或它的接口类。
 
-目前通过了编译、18 项服务器 GameTest 和客户端渲染检查，覆盖云库存档与扩容、MI 七级储罐上传、Mekanism 四级储罐上传、量子容量、流体保存与容器存取、配置关闭后保留数据、自动化、云箱菜单、客户端搜索结果同步、Shift 下反复存取与槽位变化、可选维度网络转存、配方、进度和建筑模板。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+工作台检查使用 `-PcraftingSmokeTest runClient`；IO 检查使用 `-PioSmokeTest runClient`，通过实际点击验证面切换、顶部锁定、批量配置、相邻方块显示、掉落物收集和面板切换，保存截图后退出。
+
+目前基础测试集有 32 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、IO 权限、真实漏斗传输和满仓掉落物收集等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -141,7 +162,7 @@ This is a Minecraft 1.21.1 NeoForge port of [Cloud Storage](https://github.com/A
 
 Regular balloons connect to your private cloud inventory. Matching colors share the same storage, and sending up more chests gives you more space. A regular Cloud Chest is personal, much like an ender chest.
 
-For shared storage and hopper access, use static balloons and Static Cloud Chests. These connect to a public inventory and support automation. Cloud Chests need access to the sky, so they won't work underground or in the Nether.
+For shared storage, use static balloons and Static Cloud Chests. These connect to a public inventory of the same color. Both regular and Static Cloud Chests support automation after uploading a hopper. Cloud Chests need access to the sky, so they won't work underground or in the Nether.
 
 Balloon arrows, Balloon Buddies, the Cloud Blower and sky structures are also included. Craft the guide book for recipes and more details.
 
@@ -160,6 +181,25 @@ The three switches on the right start disabled and are saved with the cloud inve
 An ordinary click still picks the result up on your cursor. Each Shift click performs at most 64 crafts to keep large batches from holding up the server. AE2 is not required.
 
 With Beyond Dimensions integration enabled, clouds with an unlocked functional block keep the cloud terminal so the crafting grid remains accessible. Background transfers still follow the configured interval and leave crafting ingredients alone.
+
+### Hoppers And Automation
+
+Send a hopper up with a balloon to unlock IO for that cloud inventory. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory. One hopper is enough. More hoppers have no additional effect and do not add item slots. Items inside the hopper travel with it. Overflow returns to your inventory, or drops at the upload location if you are offline.
+
+A hopper button then appears in the left sidebar. Click it to open the side configuration panel between cloud storage and your inventory. It shares this space with the crafting panel. The six squares represent the chest's front, left, right, back, top and bottom faces. Each shows the adjacent block's icon, or stays empty when there is no block. Colors indicate the allowed operations:
+
+- **Red**: input only.
+- **Blue**: output only, extracted by a connected hopper or pipe.
+- **Purple**: input and output.
+- **Gray**: disabled.
+
+Left-click advances the mode, right-click goes back, and Shift-left-click disables a face. **The top face is always disabled.** The lower-right button configures all other faces at once: left/right-click cycles matching modes, mixed modes reset to disabled, and Shift-click disables all of them. The top face stays unchanged.
+
+These settings apply to both item and fluid connections through standard NeoForge capabilities. Item storage still needs uploaded chests; fluid storage needs uploaded tanks. Mekanism is not required. Settings belong to each physical Cloud Chest, so chests connected to the same cloud can have different configurations. All faces start disabled. Existing automated Static Cloud Chests also need a hopper upload and configured faces after updating.
+
+A regular Cloud Chest uses **the linked inventory of the player who last changes its IO settings**. Other players approaching the chest do not change the automation target. It continues working while that player is offline, as long as the chunk is loaded. A Static Cloud Chest uses its shared inventory.
+
+The **Collect dropped items** switch on the right starts off: red means disabled, green means enabled. It stores items dropped directly above the chest and leaves any overflow in the world. Collection runs every 8 ticks and processes up to 32 item entities per pass. It works independently of the disabled top IO face and ignores items beside or below the chest. Both automation and collection follow the chest's usual sky access and clear space requirements.
 
 ### Fluid Storage
 
@@ -180,7 +220,7 @@ Fluid storage is enabled by default. Its switch is in `config/cloudstorage_rebor
 fluid_storage = true
 ```
 
-Setting it to `false` disables tank uploads, terminal fluid transfers and fluid transfers to Beyond Dimensions. Uploaded capacity, type slots and saved fluids are preserved. Private fluid storage follows the player UUID and balloon color; static storage follows its shared color. Both are saved with the world. Transfers currently use the GUI; fluid pipes are not connected yet.
+Setting it to `false` disables tank uploads, terminal and pipe fluid transfers, and fluid transfers to Beyond Dimensions. Uploaded capacity, type slots and saved fluids are preserved. Private fluid storage follows the player UUID and balloon color; static storage follows its shared color. Both are saved with the world. Fluid pipes can connect after uploading a hopper and enabling the appropriate chest faces.
 
 The block tag **`cloudstorage:fluid_storage`** controls which tanks can be uploaded. Data packs can add other tanks through `data/cloudstorage/tags/block/fluid_storage.json`. A tank must expose a standard fluid capability; empty tanks and tanks containing a single fluid type are supported. The seven MI entries and four Mekanism entries are optional, so the tag loads without either mod installed. Items in Mekanism tank input/output slots travel with the upload; when a tank-only cloud has no item slots, excess items return to the owner or drop nearby.
 
@@ -250,7 +290,9 @@ Use `-PneoForgeVersion=21.1.244 -PmodernIndustrializationTestMods=/path/to/mods 
 
 For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -PmouseTweaksSmokeTest runClient`. It checks coordinate mapping, rapid requests and transfers in both directions through the actual custom screen handler. The compile-only API source is included in the repository; the runtime interface comes from Mouse Tweaks. Neither Mouse Tweaks nor its interface class is bundled into the mod JAR.
 
-The port passes compilation, eighteen server GameTests and client rendering checks. These cover cloud inventory saves and expansion, all seven MI tank tiers, four Mekanism tank tiers, quantum capacity, fluid persistence and container transfers, data preservation while disabled, automation, chest menus, client search result synchronization, repeated Shift transfers with changing cloud slots, optional dimensional network transfers, recipes, advancements and structure templates. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+Use `-PcraftingSmokeTest runClient` for the crafting check. `-PioSmokeTest runClient` performs real clicks to check face modes, the fixed top face, batch configuration, adjacent block icons, dropped item collection and panel switching. Both save screenshots and exit.
+
+The base suite contains 32 server GameTests covering saves, capacity, container transfers, menus, recipes, crafting, IO permissions, real hopper transfers and collection with full storage. Separate client checks cover searches, Shift ordering, rendering and interaction. The parameters above load local mods for MI, Mekanism, Mouse Tweaks and Beyond Dimensions integration checks. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 

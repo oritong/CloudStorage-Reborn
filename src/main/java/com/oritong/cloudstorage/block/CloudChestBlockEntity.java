@@ -63,6 +63,7 @@ public class CloudChestBlockEntity extends AbstractCloudChestBlockEntity {
     public void setBalloonColorFor(Player player, int color) {
         playerToBalloonColor.put(player.getUUID(), color);
         this.setChanged();
+        if (level != null) level.invalidateCapabilities(worldPosition);
     }
 
 
@@ -129,7 +130,7 @@ public class CloudChestBlockEntity extends AbstractCloudChestBlockEntity {
                     AbstractContainerMenu linked = com.oritong.cloudstorage.compat.BeyondDimensionsCompat.createMenu(i, playerInventory, cloudIndex);
                     if (linked != null) return linked;
                 }
-                return new CloudChestMenu(i, playerInventory, cloudIndex, data);
+                return new CloudChestMenu(i, playerInventory, cloudIndex, data, this);
             }
         }
         return null;
@@ -206,6 +207,12 @@ public class CloudChestBlockEntity extends AbstractCloudChestBlockEntity {
 
     public boolean hasLootBalloon(){
         return this.lootBalloonColor != 0;
+    }
+
+    @Override public CloudIndex getAutomationCloud(UUID owner) {
+        if (owner == null || hasLootBalloon() || !playerToBalloonColor.containsKey(owner)) return null;
+        CSWorldData data = CSWorldData.get(level);
+        return data == null ? null : data.getPrivateCloud(owner, playerToBalloonColor.get(owner));
     }
 
     public void unpackLootTable(@Nullable Player player, Container toFill) {

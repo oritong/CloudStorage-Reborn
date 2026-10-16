@@ -69,12 +69,14 @@ public class MigrationTests {
     public static void automationAndEntities(GameTestHelper helper) {
         int color = UUID.randomUUID().hashCode() & 0xFFFFFF;
         var cloud = new CloudIndex(UUID.randomUUID(), color, 27);
+        cloud.unlock(com.oritong.cloudstorage.misc.CloudFunction.HOPPER);
         CSWorldData.get(helper.getLevel()).addPublicCloud(cloud);
         BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1));
         helper.getLevel().setBlockAndUpdate(pos, CSBlockRegistry.STATIC_CLOUD_CHEST.get().defaultBlockState());
         var chest = (StaticCloudChestBlockEntity) helper.getLevel().getBlockEntity(pos);
         chest.setBalloonColorFor(null, color);
-        var handler = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, Direction.UP);
+        chest.automation().setMode(helper.makeMockPlayer(GameType.SURVIVAL), com.oritong.cloudstorage.inventory.CloudIOSide.BOTTOM, 3);
+        var handler = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, Direction.DOWN);
         helper.assertTrue(handler != null && handler.getSlots() == 27, "Static chest capability is missing");
         helper.assertTrue(handler.insertItem(0, new ItemStack(Items.IRON_INGOT, 8), false).isEmpty(), "Automation rejected item insertion");
         helper.assertTrue(cloud.getContainer().getItem(0).getCount() == 8, "Automation wrote to the wrong inventory");

@@ -7,7 +7,8 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /** One unlock per block type, independent of item and fluid capacity. */
 public enum CloudFunction {
-    CRAFTING_TABLE("crafting_table", Blocks.CRAFTING_TABLE);
+    CRAFTING_TABLE("crafting_table", Blocks.CRAFTING_TABLE),
+    HOPPER("hopper", Blocks.HOPPER);
 
     private final ResourceLocation id;
     private final Block block;

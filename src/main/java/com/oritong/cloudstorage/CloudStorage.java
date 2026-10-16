@@ -95,7 +95,10 @@ public class CloudStorage
         });
     }
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("7");
+        var registrar = event.registrar("8");
+        registrar.playToClient(com.oritong.cloudstorage.network.MessageCloudIOContext.TYPE,
+                com.oritong.cloudstorage.network.MessageCloudIOContext.CODEC,
+                com.oritong.cloudstorage.network.MessageCloudIOContext::handle);
         registrar.playToServer(MessageCloudQuickMove.TYPE, MessageCloudQuickMove.CODEC, MessageCloudQuickMove::handle);
         registrar.playToServer(MessageCloudTerminalAction.TYPE, MessageCloudTerminalAction.CODEC, MessageCloudTerminalAction::handle);
         registrar.playToClient(MessageCloudTerminalContents.TYPE, MessageCloudTerminalContents.CODEC, MessageCloudTerminalContents::handle);
@@ -112,7 +115,10 @@ public class CloudStorage
     }
 
     private void registerCapabilities(net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent event) {
-        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, CSBlockEntityRegistry.STATIC_CLOUD_CHEST.get(), (chest, side) -> chest.getItemHandler(side));
+        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, CSBlockEntityRegistry.STATIC_CLOUD_CHEST.get(), (chest, side) -> chest.automation().itemHandler(side));
+        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.BLOCK, CSBlockEntityRegistry.CLOUD_CHEST.get(), (chest, side) -> chest.automation().itemHandler(side));
+        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, CSBlockEntityRegistry.STATIC_CLOUD_CHEST.get(), (chest, side) -> chest.automation().fluidHandler(side));
+        event.registerBlockEntity(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, CSBlockEntityRegistry.CLOUD_CHEST.get(), (chest, side) -> chest.automation().fluidHandler(side));
     }
 
     public static void sendMSGToAll(CustomPacketPayload message) { PacketDistributor.sendToAllPlayers(message); }

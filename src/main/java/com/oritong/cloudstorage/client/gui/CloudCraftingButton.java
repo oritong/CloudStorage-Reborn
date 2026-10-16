@@ -43,6 +43,11 @@ public final class CloudCraftingButton extends Button {
                     graphics.fill(x + 4 + i, y + 4 + i, x + 5 + i, y + 5 + i, color);
                     graphics.fill(x + 10 - i, y + 4 + i, x + 11 - i, y + 5 + i, color);
                 }
+            } else if (kind == 3) { // Item collection: a funnel.
+                graphics.fill(x + 3, y + 3, x + 12, y + 5, color);
+                graphics.fill(x + 4, y + 5, x + 11, y + 7, color);
+                graphics.fill(x + 5, y + 7, x + 10, y + 9, color);
+                graphics.fill(x + 7, y + 9, x + 9, y + 12, color);
             } else { // Pull / store: arrows into / out of a small cloud-storage bar.
                 int direction = kind == 1 ? -1 : 1;
                 graphics.fill(x + 3, y + (kind == 1 ? 3 : 11), x + 12, y + (kind == 1 ? 5 : 13), color);

@@ -19,6 +19,9 @@ neoForge {
     runs {
         client {
             client()
+            if (project.hasProperty('ioSmokeTest')) {
+                systemProperty 'cloudstorage_reborn.ioSmokeTest', 'true'
+            }
             if (project.hasProperty('craftingSmokeTest')) {
                 systemProperty 'cloudstorage_reborn.craftingSmokeTest', 'true'
             }

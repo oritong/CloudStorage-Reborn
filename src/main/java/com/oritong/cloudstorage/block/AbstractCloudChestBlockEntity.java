@@ -1,6 +1,8 @@
 package com.oritong.cloudstorage.block;
 
 import com.oritong.cloudstorage.CloudStorage;
+import com.oritong.cloudstorage.inventory.CloudChestAutomation;
+import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.client.particle.CSParticleRegistry;
 import com.oritong.cloudstorage.item.CSItemRegistry;
 import com.oritong.cloudstorage.misc.CSSoundRegistry;
@@ -25,6 +27,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Random;
+import java.util.UUID;
 
 public abstract class AbstractCloudChestBlockEntity extends BlockEntity {
     private float openProgress;
@@ -35,6 +38,7 @@ public abstract class AbstractCloudChestBlockEntity extends BlockEntity {
     public Player lastValidPlayer = null;
     private static Random random = new Random();
     private int lastSoundTimestamp = 0;
+    private final CloudChestAutomation automation = new CloudChestAutomation(this);
 
     public AbstractCloudChestBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -44,6 +48,7 @@ public abstract class AbstractCloudChestBlockEntity extends BlockEntity {
         e.prevOpenProgress = e.openProgress;
         e.prevEmergence = e.emergence;
         e.tickCount++;
+        if (!level.isClientSide()) e.automation.tick();
         boolean open = false;
         boolean emergedBalloon = false;
         Player player = e.level.getNearestPlayer((double)pos.getX() + 0.5D, (double)pos.getY() + 0.5D, (double)pos.getZ() + 0.5D, CloudStorage.CONFIG.cloudChestOpenDistance.get(), false);
@@ -130,6 +135,19 @@ public abstract class AbstractCloudChestBlockEntity extends BlockEntity {
         return new SimpleMenuProvider((id, playerInventory, textComponent) -> {
             return getMenu(id, playerInventory);
         }, getTitle());
+    }
+
+    public CloudChestAutomation automation() { return automation; }
+    public abstract CloudIndex getAutomationCloud(UUID owner);
+
+    @Override protected void loadAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        automation.load(tag);
+    }
+
+    @Override protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        automation.save(tag);
     }
 
 

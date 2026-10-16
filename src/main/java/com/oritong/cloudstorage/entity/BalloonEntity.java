@@ -223,6 +223,14 @@ public class BalloonEntity extends Entity {
                         if (function != null) {
                             CloudIndex cloud = prev == null ? new CloudIndex(cargo.getPlayerUUID(), getBalloonColor(), 0) : prev;
                             cloud.unlock(function);
+                            Player owner = level().getPlayerByUUID(cargo.getPlayerUUID());
+                            for (ItemStack stack : cargo.getContainerItems()) {
+                                ItemStack remainder = cloud.getContainer().addItem(stack.copy());
+                                if (!remainder.isEmpty()) {
+                                    if (owner != null) owner.getInventory().placeItemBackInInventory(remainder);
+                                    else cargo.spawnAtLocation(remainder, 0.5F);
+                                }
+                            }
                             if (prev == null) {
                                 if (isCharged()) data.addPublicCloud(cloud);
                                 else data.addPrivateCloud(cloud);

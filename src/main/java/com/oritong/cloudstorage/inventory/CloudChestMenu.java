@@ -7,10 +7,14 @@ import com.oritong.cloudstorage.network.MessageCloudTerminalContents;
 import com.oritong.cloudstorage.network.MessageCloudQuickMove;
 import com.oritong.cloudstorage.misc.CloudIndex;
 import com.oritong.cloudstorage.misc.CloudFunction;
+import com.oritong.cloudstorage.block.AbstractCloudChestBlockEntity;
+import com.oritong.cloudstorage.network.MessageCloudIOContext;
 import com.oritong.cloudstorage.world.CSWorldData;
 import com.google.common.collect.Lists;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -67,6 +71,12 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final ResultContainer craftingResult = new ResultContainer();
     private final ContainerListener craftingListener;
     private boolean craftingOpen;
+    private boolean ioOpen;
+    private AbstractCloudChestBlockEntity chest;
+    private BlockPos clientChestPos;
+    private Direction clientChestFront = Direction.NORTH;
+    private Direction sentIOFront;
+    private int clientIOSettings;
     private int clientCraftingFlags;
     private long observedCraftingRevision = -1;
     private long lastPullTerminalRevision = -1;
@@ -113,6 +123,10 @@ public class CloudChestMenu extends AbstractContainerMenu {
             @Override public int get() { return craftingFlags(); }
             @Override public void set(int value) { clientCraftingFlags = value; }
         });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return getIOSettings(); }
+            @Override public void set(int value) { clientIOSettings = value; }
+        });
         craftingListener = ignored -> { observedCraftingRevision = -1; fluidChanged.run(); };
         if (!owner.level().isClientSide()) crafting.addListener(craftingListener);
         CloudStorage.PROXY.setVisibleCloudSlots(containerIn.getContainerSize());
@@ -124,14 +138,28 @@ public class CloudChestMenu extends AbstractContainerMenu {
         this(id, playerInv, cloud.getContainer(), cloud, data::setDirty);
     }
 
+    public CloudChestMenu(int id, Inventory playerInv, CloudIndex cloud, CSWorldData data, AbstractCloudChestBlockEntity chest) {
+        this(id, playerInv, cloud, data);
+        this.chest = chest;
+    }
+
     private int craftingFlags() {
         if (cloud == null) return clientCraftingFlags;
         return cloud.functionMask() | (craftingOpen ? 256 : 0) | (cloud.autoClear() ? 512 : 0)
-                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0);
+                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0) | (ioOpen ? 4096 : 0);
     }
     public int getFunctionMask() { return craftingFlags() & 255; }
     public boolean hasFunction(CloudFunction function) { return (getFunctionMask() & function.mask()) != 0; }
     public boolean isCraftingOpen() { return hasFunction(CloudFunction.CRAFTING_TABLE) && (craftingFlags() & 256) != 0; }
+    public boolean isIOOpen() { return hasFunction(CloudFunction.HOPPER) && (craftingFlags() & 4096) != 0; }
+    public int getPanelHeight() { return isCraftingOpen() ? 78 : isIOOpen() ? 84 : 0; }
+    public boolean isFunctionOpen(CloudFunction function) { return function == CloudFunction.CRAFTING_TABLE ? isCraftingOpen() : isIOOpen(); }
+    public int getIOSettings() { return chest == null ? clientIOSettings : chest.automation().settings(); }
+    public int getIOMode(CloudIOSide side) { return side == CloudIOSide.TOP ? 0 : (getIOSettings() >> (side.ordinal() * 2)) & 3; }
+    public boolean isCollectingDrops() { return (getIOSettings() & 4096) != 0; }
+    public BlockPos getChestPos() { return chest == null ? clientChestPos : chest.getBlockPos(); }
+    public Direction getChestFront() { return chest == null ? clientChestFront : chest.automation().front(); }
+    public void receiveIOContext(BlockPos pos, Direction front) { clientChestPos = pos; clientChestFront = front; }
     public boolean isAutoClear() { return (craftingFlags() & 512) != 0; }
     public boolean isAutoPull() { return (craftingFlags() & 1024) != 0; }
     public boolean isCraftToCloud() { return (craftingFlags() & 2048) != 0; }
@@ -141,8 +169,28 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     @Override public boolean clickMenuButton(Player player, int button) {
         if (player != owner || player.level().isClientSide() || cloud == null || !stillValid(player)) return false;
-        if (button == 100 && hasFunction(CloudFunction.CRAFTING_TABLE)) craftingOpen = !craftingOpen;
-        else if (hasFunction(CloudFunction.CRAFTING_TABLE)) {
+        if (button >= 300) {
+            if (!isIOOpen() || chest == null || chest.isRemoved() || chest.getLevel() != player.level()
+                    || player.distanceToSqr(chest.getBlockPos().getCenter()) > 64
+                    || chest.getAutomationCloud(player.getUUID()) != cloud) return false;
+            var automation = chest.automation();
+            if (button >= 300 && button < 306) automation.cycle(player, CloudIOSide.values()[button - 300], 1);
+            else if (button >= 310 && button < 316) automation.cycle(player, CloudIOSide.values()[button - 310], -1);
+            else if (button >= 330 && button < 336) automation.setMode(player, CloudIOSide.values()[button - 330], 0);
+            else switch (button) {
+                case 320 -> automation.batch(player, 1);
+                case 321 -> automation.batch(player, -1);
+                case 322 -> automation.batch(player, 0);
+                case 323 -> automation.toggleCollection(player);
+                default -> { return false; }
+            }
+        } else if (button == 100 && hasFunction(CloudFunction.CRAFTING_TABLE)) {
+            craftingOpen = !craftingOpen;
+            ioOpen = false;
+        } else if (button == 101 && hasFunction(CloudFunction.HOPPER)) {
+            ioOpen = !ioOpen;
+            craftingOpen = false;
+        } else if (button >= 200 && button <= 202 && hasFunction(CloudFunction.CRAFTING_TABLE)) {
             switch (button) {
                 case 200 -> cloud.setAutoClear(!cloud.autoClear());
                 case 201 -> cloud.setAutoPull(!cloud.autoPull());
@@ -167,7 +215,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     /** Slot coordinates are final in vanilla; replace only the views when the screen is resized. */
     public void layoutSlots(int rows) {
-        int offset = (rows - 6) * 18 + (isCraftingOpen() ? 78 : 0);
+        int offset = (rows - 6) * 18 + getPanelHeight();
         for (int i = 0; i < 36; i++) {
             int index = cloudSlotCount() + i;
             Slot old = slots.get(index);
@@ -333,6 +381,10 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     @Override public void broadcastChanges() {
         if (!owner.level().isClientSide()) {
+            if (chest != null && !chest.isRemoved() && sentIOFront != chest.automation().front() && owner instanceof ServerPlayer player && player.containerMenu == this) {
+                CloudStorage.sendNonLocal(new MessageCloudIOContext(containerId, chest.getBlockPos(), chest.automation().front()), player);
+                sentIOFront = chest.automation().front();
+            }
             refreshTerminal(false);
             if (lastPullTerminalRevision != terminalRevision || lastPullCraftingRevision != crafting.revision()) {
                 pullIngredients();
