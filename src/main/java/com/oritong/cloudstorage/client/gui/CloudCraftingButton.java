@@ -23,14 +23,21 @@ public final class CloudCraftingButton extends Button {
 
     @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float tick) {
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
+        boolean toggle = icon.isEmpty();
+        int highlight = toggle ? (selected ? 0xFF8FE6A5 : 0xFFF28C8C) : (selected ? 0xFF74A6CA : 0xFFFFFFFF);
+        int background = toggle
+                ? (selected ? (isHoveredOrFocused() ? 0xFF42A65A : 0xFF31934D)
+                            : (isHoveredOrFocused() ? 0xFFD55353 : 0xFFBC4040))
+                : (isHoveredOrFocused() ? 0xFFDCE7ED : 0xFFC6C6C6);
+        int shadow = toggle ? (selected ? 0xFF1D5630 : 0xFF6C2323) : 0xFF777777;
         graphics.fill(x, y, x + w, y + h, 0xFF373737);
-        graphics.fill(x + 1, y + 1, x + w - 1, y + h - 1, selected ? 0xFF74A6CA : 0xFFFFFFFF);
-        graphics.fill(x + 2, y + 2, x + w - 1, y + h - 1, isHoveredOrFocused() ? 0xFFDCE7ED : 0xFFC6C6C6);
-        graphics.fill(x + 2, y + h - 2, x + w - 1, y + h - 1, 0xFF777777);
-        graphics.fill(x + w - 2, y + 2, x + w - 1, y + h - 1, 0xFF777777);
+        graphics.fill(x + 1, y + 1, x + w - 1, y + h - 1, highlight);
+        graphics.fill(x + 2, y + 2, x + w - 1, y + h - 1, background);
+        graphics.fill(x + 2, y + h - 2, x + w - 1, y + h - 1, shadow);
+        graphics.fill(x + w - 2, y + 2, x + w - 1, y + h - 1, shadow);
         if (!icon.isEmpty()) graphics.renderItem(icon, x + (w - 16) / 2, y + (h - 16) / 2);
         else {
-            int color = selected ? 0xFF216A3C : 0xFF505050;
+            int color = 0xFFFFFFFF;
             if (kind == 0) { // Clear: cross.
                 for (int i = 0; i < 7; i++) {
                     graphics.fill(x + 4 + i, y + 4 + i, x + 5 + i, y + 5 + i, color);
@@ -45,6 +52,6 @@ public final class CloudCraftingButton extends Button {
                         x + 11 - i, tipY + direction * i + 1, color);
             }
         }
-        if (selected) graphics.fill(x + 2, y + h - 3, x + w - 2, y + h - 2, 0xFF398652);
+        if (!toggle && selected) graphics.fill(x + 2, y + h - 3, x + w - 2, y + h - 2, 0xFF398652);
     }
 }
