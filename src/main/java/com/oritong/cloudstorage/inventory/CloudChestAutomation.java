@@ -143,21 +143,37 @@ public final class CloudChestAutomation {
                 }
             };
         }
-        @Override public int getSlots() { return delegate.getSlots(); }
-        @Override public ItemStack getStackInSlot(int slot) { return slot < 0 || slot >= getSlots() ? ItemStack.EMPTY : delegate.getStackInSlot(slot); }
-        @Override public int getSlotLimit(int slot) { return slot < 0 || slot >= getSlots() ? 0 : delegate.getSlotLimit(slot); }
+        private CloudFurnace intake() {
+            CloudIndex current = (mode(side) & INPUT) == 0 ? null : cloud();
+            return current != null && current.getFurnace().count() > 0 && current.getFurnace().smeltIncoming() ? current.getFurnace() : null;
+        }
+        private int extra() { return intake() == null ? 0 : 1; }
+        @Override public int getSlots() { return delegate.getSlots() + extra(); }
+        @Override public ItemStack getStackInSlot(int slot) {
+            int extra = extra();
+            return slot < extra || slot >= getSlots() ? ItemStack.EMPTY : delegate.getStackInSlot(slot - extra);
+        }
+        @Override public int getSlotLimit(int slot) {
+            if (slot < 0 || slot >= getSlots()) return 0;
+            return slot < extra() ? 64 : delegate.getSlotLimit(slot - extra());
+        }
         @Override public boolean isItemValid(int slot, ItemStack stack) {
-            return (mode(side) & INPUT) != 0 && slot >= 0 && slot < getSlots() && delegate.isItemValid(slot, stack);
+            if ((mode(side) & INPUT) == 0 || slot < 0 || slot >= getSlots()) return false;
+            return slot < extra() ? intake().isSmeltable(chest.getLevel(), stack) : delegate.isItemValid(slot - extra(), stack);
         }
         @Override public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
             if ((mode(side) & INPUT) == 0 || slot < 0 || slot >= getSlots()) return stack;
-            ItemStack remaining = delegate.insertItem(slot, stack, simulate);
+            var furnace = intake();
+            ItemStack remaining = furnace != null && furnace.isSmeltable(chest.getLevel(), stack) ? furnace.insertInput(stack, simulate) : stack;
+            int extra = furnace == null ? 0 : 1;
+            if (slot >= extra && !remaining.isEmpty()) remaining = delegate.insertItem(slot - extra, remaining, simulate);
             if (!simulate && remaining.getCount() != stack.getCount()) dirty();
             return remaining;
         }
         @Override public ItemStack extractItem(int slot, int count, boolean simulate) {
-            if ((mode(side) & OUTPUT) == 0 || slot < 0 || slot >= getSlots()) return ItemStack.EMPTY;
-            ItemStack result = delegate.extractItem(slot, count, simulate);
+            int extra = extra();
+            if ((mode(side) & OUTPUT) == 0 || slot < extra || slot >= getSlots()) return ItemStack.EMPTY;
+            ItemStack result = delegate.extractItem(slot - extra, count, simulate);
             if (!simulate && !result.isEmpty()) dirty();
             return result;
         }

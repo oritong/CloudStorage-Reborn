@@ -115,6 +115,18 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                     Component.translatable("cloudstorage_reborn.io.collect", Component.translatable(menu.isCollectingDrops() ? "options.on" : "options.off")),
                     ItemStack.EMPTY, 3, menu.isCollectingDrops(), button -> sendButton(323)));
         }
+        if (menu.isFurnaceOpen()) {
+            var furnace = menu.getFurnace();
+            boolean[] enabled = { furnace.autoOutput(), furnace.autoFuel(), furnace.smeltIncoming() };
+            String[] names = { "auto_output", "auto_fuel", "smelt_incoming" };
+            for (int i = 0; i < 3; i++) {
+                final int option = i;
+                addRenderableWidget(new CloudCraftingButton(leftPos + 174, topPos + 18 + visibleRows * 18 + 17 + i * 18,
+                        14, Component.translatable("cloudstorage_reborn.furnace." + names[i],
+                        Component.translatable(enabled[i] ? "options.on" : "options.off")),
+                        ItemStack.EMPTY, 4 + i, enabled[i], button -> sendButton(400 + option)));
+            }
+        }
         scrollRow = Math.min(scrollRow, maxScrollRow());
         updateDisplay();
     }
@@ -124,7 +136,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     private int layoutState() {
         return menu.getFunctionMask() | (menu.isCraftingOpen() ? 256 : 0) | (menu.isIOOpen() ? 4096 : 0)
                 | (menu.isAutoClear() ? 512 : 0) | (menu.isAutoPull() ? 1024 : 0) | (menu.isCraftToCloud() ? 2048 : 0)
-                | (menu.isCollectingDrops() ? 8192 : 0);
+                | (menu.isCollectingDrops() ? 8192 : 0) | (menu.isFurnaceOpen() ? 16384 : 0)
+                | (menu.getFurnace().flags() << 16) | (menu.getFurnace().count() << 20);
     }
 
     public void receiveSearchContents(MessageCloudSearchContents message) { }
@@ -300,6 +313,24 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
             graphics.drawString(font, "→", leftPos + 100, topPos + gridEnd + 40, 4210752, false);
         }
         if (menu.isIOOpen()) graphics.drawString(font, Component.translatable("cloudstorage_reborn.io.title"), leftPos + 8, topPos + gridEnd + 4, 4210752, false);
+        if (menu.isFurnaceOpen()) {
+            var furnace = menu.getFurnace();
+            graphics.drawString(font, Component.translatable("cloudstorage_reborn.furnace.title", furnace.count()), leftPos + 8, topPos + gridEnd + 4, 4210752, false);
+            String[] names = { "input", "fuel", "output" };
+            for (int group = 0; group < 3; group++) {
+                Component label = Component.translatable("cloudstorage_reborn.furnace." + names[group]);
+                graphics.drawString(font, label, leftPos + 6 + group * 56 + (54 - font.width(label)) / 2, topPos + gridEnd + 20, 4210752, false);
+                for (int i = 0; i < furnace.slotsPerGroup(); i++) {
+                    Slot slot = menu.slots.get(menu.furnaceStart() + group * 9 + i);
+                    graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
+                }
+            }
+            int barY = topPos + gridEnd + 32 + furnace.rows() * 18 + 4;
+            graphics.fill(leftPos + 8, barY, leftPos + 164, barY + 5, 0xFF555555);
+            graphics.fill(leftPos + 8, barY, leftPos + 8 + 156 * furnace.progressScale() / 1000, barY + 5, 0xFFDB922F);
+            graphics.drawString(font, Component.translatable("cloudstorage_reborn.furnace.running", furnace.active(), furnace.count()),
+                    leftPos + 8, barY + 7, 4210752, false);
+        }
         graphics.blit(TEXTURE, leftPos, topPos + gridEnd + menu.getPanelHeight(), 0, 126, imageWidth, 96);
         if (menu.getPanelHeight() > 0) graphics.fill(leftPos + 173, topPos + gridEnd + menu.getPanelHeight(),
                 leftPos + 190, topPos + gridEnd + menu.getPanelHeight() + 5, 0xFFC6C6C6);

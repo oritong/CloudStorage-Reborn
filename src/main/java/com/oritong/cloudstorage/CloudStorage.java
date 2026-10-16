@@ -95,7 +95,7 @@ public class CloudStorage
         });
     }
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("8");
+        var registrar = event.registrar("9");
         registrar.playToClient(com.oritong.cloudstorage.network.MessageCloudIOContext.TYPE,
                 com.oritong.cloudstorage.network.MessageCloudIOContext.CODEC,
                 com.oritong.cloudstorage.network.MessageCloudIOContext::handle);

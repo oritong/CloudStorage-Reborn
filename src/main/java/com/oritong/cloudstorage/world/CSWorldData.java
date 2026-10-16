@@ -1,6 +1,10 @@
 package com.oritong.cloudstorage.world;
 
 import com.oritong.cloudstorage.misc.CloudIndex;
+import com.oritong.cloudstorage.CloudStorage;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
@@ -13,6 +17,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+@EventBusSubscriber(modid = CloudStorage.MODID)
 public class CSWorldData extends SavedData {
 
     private static final String IDENTIFIER = "cloudstorage_reborn_world_data";
@@ -22,6 +27,14 @@ public class CSWorldData extends SavedData {
 
     private CSWorldData() {
         super();
+    }
+
+    @SubscribeEvent public static void tickFurnaces(ServerTickEvent.Post event) {
+        var level = event.getServer().overworld();
+        var data = get(level);
+        if (data == null) return;
+        for (var cloud : data.privateClouds) if (cloud.getFurnace().count() > 0) cloud.getFurnace().tick(level, cloud.getContainer());
+        for (var cloud : data.publicClouds) if (cloud.getFurnace().count() > 0) cloud.getFurnace().tick(level, cloud.getContainer());
     }
 
     public static CSWorldData get(Level world) {

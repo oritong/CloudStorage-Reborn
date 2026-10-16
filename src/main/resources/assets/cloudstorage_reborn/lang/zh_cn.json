@@ -1,5 +1,13 @@
 {
   "itemGroup.cloudstorage_reborn": "云存储：涅槃",
+  "cloudstorage_reborn.furnace.title": "熔炉（%s 路并行）",
+  "cloudstorage_reborn.furnace.input": "输入",
+  "cloudstorage_reborn.furnace.fuel": "燃料",
+  "cloudstorage_reborn.furnace.output": "输出",
+  "cloudstorage_reborn.furnace.running": "运行：%s/%s",
+  "cloudstorage_reborn.furnace.auto_output": "自动输出：%s\n将熔炼产物存入云端，放不下的保留在输出槽。",
+  "cloudstorage_reborn.furnace.auto_fuel": "自动寻找燃料：%s\n从云端补充 #cloudstorage:fuel 标签内的有效燃料。\n默认包含煤炭和煤炭块。",
+  "cloudstorage_reborn.furnace.smelt_incoming": "输入熔炼：%s\n需要上传漏斗并启用输入面。\n从该面输入的可熔炼物品优先放入熔炉，剩余物品存入云端。",
   "cloudstorage_reborn.io.title": "输入/输出",
   "cloudstorage_reborn.io.mode.0": "禁止 IO",
   "cloudstorage_reborn.io.mode.1": "仅输入",

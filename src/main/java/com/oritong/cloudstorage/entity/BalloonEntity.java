@@ -222,7 +222,7 @@ public class BalloonEntity extends Entity {
                         CloudIndex prev = isCharged() ? data.getPublicCloud(getBalloonColor()) : data.getPrivateCloud(cargo.getPlayerUUID(), getBalloonColor());
                         if (function != null) {
                             CloudIndex cloud = prev == null ? new CloudIndex(cargo.getPlayerUUID(), getBalloonColor(), 0) : prev;
-                            cloud.unlock(function);
+                            boolean upgraded = cloud.uploadFunction(function);
                             Player owner = level().getPlayerByUUID(cargo.getPlayerUUID());
                             for (ItemStack stack : cargo.getContainerItems()) {
                                 ItemStack remainder = cloud.getContainer().addItem(stack.copy());
@@ -231,6 +231,7 @@ public class BalloonEntity extends Entity {
                                     else cargo.spawnAtLocation(remainder, 0.5F);
                                 }
                             }
+                            if (!upgraded) cloud.getContainer().addItem(new ItemStack(function.block()));
                             if (prev == null) {
                                 if (isCharged()) data.addPublicCloud(cloud);
                                 else data.addPrivateCloud(cloud);

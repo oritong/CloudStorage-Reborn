@@ -29,6 +29,7 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.ResultContainer;
 import net.minecraft.world.inventory.ResultSlot;
+import net.minecraft.world.inventory.FurnaceResultSlot;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.server.level.ServerPlayer;
@@ -72,6 +73,8 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final ContainerListener craftingListener;
     private boolean craftingOpen;
     private boolean ioOpen;
+    private boolean furnaceOpen;
+    private final CloudFurnace furnace;
     private AbstractCloudChestBlockEntity chest;
     private BlockPos clientChestPos;
     private Direction clientChestFront = Direction.NORTH;
@@ -98,6 +101,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
         this.fluidChanged = changed;
         this.fluidStorage = cloud == null ? null : cloud.getFluids();
         this.crafting = cloud == null ? new CloudCraftingContainer() : cloud.getCrafting();
+        this.furnace = cloud == null ? new CloudFurnace() : cloud.getFurnace();
         containerIn.startOpen(playerInv.player);
         int clampedSize = Math.min(containerIn.getContainerSize(), 54);
 
@@ -119,6 +123,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
         }
         for (int i = 0; i < 9; i++) addSlot(craftingSlot(i, 30 + i % 3 * 18, 144 + i / 3 * 18));
         addSlot(new CloudResultSlot(124, 162));
+        for (int i = 0; i < 27; i++) addSlot(furnaceSlot(i, -1000, -1000));
         addDataSlot(new DataSlot() {
             @Override public int get() { return craftingFlags(); }
             @Override public void set(int value) { clientCraftingFlags = value; }
@@ -126,6 +131,22 @@ public class CloudChestMenu extends AbstractContainerMenu {
         addDataSlot(new DataSlot() {
             @Override public int get() { return getIOSettings(); }
             @Override public void set(int value) { clientIOSettings = value; }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return furnace.count(); }
+            @Override public void set(int value) { furnace.setCount(value); }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return furnace.flags(); }
+            @Override public void set(int value) { furnace.setFlags(value); }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return furnace.active(); }
+            @Override public void set(int value) { furnace.setActive(value); }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return furnace.progressScale(); }
+            @Override public void set(int value) { furnace.setClientProgress(value); }
         });
         craftingListener = ignored -> { observedCraftingRevision = -1; fluidChanged.run(); };
         if (!owner.level().isClientSide()) crafting.addListener(craftingListener);
@@ -146,14 +167,17 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private int craftingFlags() {
         if (cloud == null) return clientCraftingFlags;
         return cloud.functionMask() | (craftingOpen ? 256 : 0) | (cloud.autoClear() ? 512 : 0)
-                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0) | (ioOpen ? 4096 : 0);
+                | (cloud.autoPull() ? 1024 : 0) | (cloud.craftToCloud() ? 2048 : 0) | (ioOpen ? 4096 : 0) | (furnaceOpen ? 8192 : 0);
     }
     public int getFunctionMask() { return craftingFlags() & 255; }
     public boolean hasFunction(CloudFunction function) { return (getFunctionMask() & function.mask()) != 0; }
     public boolean isCraftingOpen() { return hasFunction(CloudFunction.CRAFTING_TABLE) && (craftingFlags() & 256) != 0; }
     public boolean isIOOpen() { return hasFunction(CloudFunction.HOPPER) && (craftingFlags() & 4096) != 0; }
-    public int getPanelHeight() { return isCraftingOpen() ? 78 : isIOOpen() ? 84 : 0; }
-    public boolean isFunctionOpen(CloudFunction function) { return function == CloudFunction.CRAFTING_TABLE ? isCraftingOpen() : isIOOpen(); }
+    public boolean isFurnaceOpen() { return hasFunction(CloudFunction.FURNACE) && (craftingFlags() & 8192) != 0; }
+    public int getPanelHeight() { return isCraftingOpen() ? 78 : isIOOpen() ? 84 : isFurnaceOpen() ? furnace.rows() * 18 + 52 : 0; }
+    public boolean isFunctionOpen(CloudFunction function) {
+        return switch (function) { case CRAFTING_TABLE -> isCraftingOpen(); case HOPPER -> isIOOpen(); case FURNACE -> isFurnaceOpen(); };
+    }
     public int getIOSettings() { return chest == null ? clientIOSettings : chest.automation().settings(); }
     public int getIOMode(CloudIOSide side) { return side == CloudIOSide.TOP ? 0 : (getIOSettings() >> (side.ordinal() * 2)) & 3; }
     public boolean isCollectingDrops() { return (getIOSettings() & 4096) != 0; }
@@ -166,10 +190,15 @@ public class CloudChestMenu extends AbstractContainerMenu {
     public int craftingStart() { return playerSlotEnd(); }
     public int craftingResultSlot() { return craftingStart() + 9; }
     public CloudCraftingContainer getCrafting() { return crafting; }
+    public int furnaceStart() { return craftingStart() + 10; }
+    public CloudFurnace getFurnace() { return furnace; }
 
     @Override public boolean clickMenuButton(Player player, int button) {
         if (player != owner || player.level().isClientSide() || cloud == null || !stillValid(player)) return false;
-        if (button >= 300) {
+        if (button >= 400 && button <= 402) {
+            if (!isFurnaceOpen()) return false;
+            furnace.toggle(button - 400);
+        } else if (button >= 300) {
             if (!isIOOpen() || chest == null || chest.isRemoved() || chest.getLevel() != player.level()
                     || player.distanceToSqr(chest.getBlockPos().getCenter()) > 64
                     || chest.getAutomationCloud(player.getUUID()) != cloud) return false;
@@ -187,9 +216,15 @@ public class CloudChestMenu extends AbstractContainerMenu {
         } else if (button == 100 && hasFunction(CloudFunction.CRAFTING_TABLE)) {
             craftingOpen = !craftingOpen;
             ioOpen = false;
+            furnaceOpen = false;
         } else if (button == 101 && hasFunction(CloudFunction.HOPPER)) {
             ioOpen = !ioOpen;
             craftingOpen = false;
+            furnaceOpen = false;
+        } else if (button == 102 && hasFunction(CloudFunction.FURNACE)) {
+            furnaceOpen = !furnaceOpen;
+            craftingOpen = false;
+            ioOpen = false;
         } else if (button >= 200 && button <= 202 && hasFunction(CloudFunction.CRAFTING_TABLE)) {
             switch (button) {
                 case 200 -> cloud.setAutoClear(!cloud.autoClear());
@@ -213,6 +248,28 @@ public class CloudChestMenu extends AbstractContainerMenu {
         };
     }
 
+    private Slot furnaceSlot(int furnaceIndex, int x, int y) {
+        if (furnaceIndex >= CloudFurnace.OUTPUT) return new FurnaceResultSlot(owner, furnace, furnaceIndex, x, y) {
+            @Override public boolean isActive() { return isFurnaceOpen() && furnaceIndex % 9 < furnace.slotsPerGroup(); }
+            @Override public boolean mayPickup(Player player) { return isActive() && player == owner; }
+            @Override protected void checkTakeAchievements(ItemStack stack) {
+                super.checkTakeAchievements(stack);
+                if (owner instanceof ServerPlayer player) { furnace.awardExperience(player); fluidChanged.run(); }
+            }
+        };
+        return new Slot(furnace, furnaceIndex, x, y) {
+            @Override public boolean isActive() { return isFurnaceOpen() && furnaceIndex % 9 < furnace.slotsPerGroup(); }
+            @Override public boolean mayPickup(Player player) { return isActive() && player == owner; }
+            @Override public boolean mayPlace(ItemStack stack) {
+                return isActive() && (furnaceIndex < CloudFurnace.FUEL ? furnace.isSmeltable(owner.level(), stack) : CloudFurnace.isFuel(stack) || stack.is(net.minecraft.world.item.Items.BUCKET));
+            }
+            @Override public int getMaxStackSize(ItemStack stack) {
+                return furnaceIndex >= CloudFurnace.FUEL && stack.is(net.minecraft.world.item.Items.BUCKET) ? 1 : super.getMaxStackSize(stack);
+            }
+            @Override public void setChanged() { super.setChanged(); fluidChanged.run(); }
+        };
+    }
+
     /** Slot coordinates are final in vanilla; replace only the views when the screen is resized. */
     public void layoutSlots(int rows) {
         int offset = (rows - 6) * 18 + getPanelHeight();
@@ -231,6 +288,13 @@ public class CloudChestMenu extends AbstractContainerMenu {
                     : craftingSlot(i, 30 + i % 3 * 18, gridY + i / 3 * 18);
             replacement.index = index;
             slots.set(index, replacement);
+        }
+        for (int i = 0; i < 27; i++) {
+            int group = i / 9, cell = i % 9, columns = furnace.columns();
+            Slot replacement = furnaceSlot(i, 6 + group * 56 + (3 - columns) * 9 + cell % columns * 18,
+                    18 + rows * 18 + 32 + cell / columns * 18);
+            replacement.index = furnaceStart() + i;
+            slots.set(replacement.index, replacement);
         }
     }
 
@@ -520,7 +584,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
 
     @Override public void clicked(int slotId, int button, ClickType type, Player player) {
         if (slotId >= 0 && slotId < slots.size() && slots.get(slotId) instanceof SlotCloudChest) return;
-        if (slotId >= craftingStart() && slotId < slots.size() && !isCraftingOpen()) return;
+        if (slotId >= craftingStart() && slotId < slots.size() && !slots.get(slotId).isActive()) return;
         if (slotId == craftingResultSlot()) {
             updateCraftingResult();
             if (type == ClickType.QUICK_MOVE) { quickCraft(player); return; }
@@ -590,9 +654,28 @@ public class CloudChestMenu extends AbstractContainerMenu {
     }
 
     public ItemStack quickMoveStack(Player player, int slotIndex) {
-        if (slotIndex < cloudSlotCount() || slotIndex >= slots.size()) return ItemStack.EMPTY;
+        if (player != owner || slotIndex < cloudSlotCount() || slotIndex >= slots.size()) return ItemStack.EMPTY;
         if (slotIndex == craftingResultSlot()) return quickCraft(player);
-        if (slotIndex >= craftingStart() && !isCraftingOpen()) return ItemStack.EMPTY;
+        if (slotIndex >= craftingStart() && !slots.get(slotIndex).isActive()) return ItemStack.EMPTY;
+        if (isFurnaceOpen()) {
+            Slot source = slots.get(slotIndex);
+            if (!source.hasItem()) return ItemStack.EMPTY;
+            ItemStack stack = source.getItem(), original = stack.copy();
+            if (slotIndex >= furnaceStart()) {
+                moveItemStackTo(stack, cloudSlotCount(), playerSlotEnd(), true);
+                if (!stack.isEmpty()) moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+            } else {
+                if (furnace.isSmeltable(player.level(), stack)) moveItemStackTo(stack, furnaceStart(), furnaceStart() + furnace.slotsPerGroup(), false);
+                else if (CloudFurnace.isFuel(stack)) moveItemStackTo(stack, furnaceStart() + 9, furnaceStart() + 9 + furnace.slotsPerGroup(), false);
+                if (!stack.isEmpty()) moveItemStackToScrollable(stack, 0, container.getContainerSize(), false);
+            }
+            if (original.getCount() == stack.getCount()) return ItemStack.EMPTY;
+            int moved = original.getCount() - stack.getCount();
+            if (stack.isEmpty()) source.set(ItemStack.EMPTY); else source.setChanged();
+            source.onTake(player, original.copyWithCount(moved));
+            fluidChanged.run();
+            return original;
+        }
         ItemStack itemstack = ItemStack.EMPTY;
         Slot slot = this.slots.get(slotIndex);
         int clampedSize = Math.min(this.container.getContainerSize(), 54);

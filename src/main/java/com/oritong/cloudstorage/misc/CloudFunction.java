@@ -5,10 +5,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** One unlock per block type, independent of item and fluid capacity. */
+/** Functional uploads are independent of item and fluid capacity. */
 public enum CloudFunction {
     CRAFTING_TABLE("crafting_table", Blocks.CRAFTING_TABLE),
-    HOPPER("hopper", Blocks.HOPPER);
+    HOPPER("hopper", Blocks.HOPPER),
+    FURNACE("furnace", Blocks.FURNACE);
 
     private final ResourceLocation id;
     private final Block block;

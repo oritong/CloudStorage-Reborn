@@ -3,6 +3,7 @@ package com.oritong.cloudstorage.misc;
 import com.oritong.cloudstorage.inventory.CloudChestContainer;
 import com.oritong.cloudstorage.inventory.CloudFluidStorage;
 import com.oritong.cloudstorage.inventory.CloudCraftingContainer;
+import com.oritong.cloudstorage.inventory.CloudFurnace;
 import com.oritong.cloudstorage.CloudStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.minecraft.nbt.CompoundTag;
@@ -21,6 +22,7 @@ public class CloudIndex {
     private int fluidTypes;
     private int functions;
     private final CloudCraftingContainer crafting = new CloudCraftingContainer();
+    private final CloudFurnace furnace = new CloudFurnace();
     private boolean autoClear;
     private boolean autoPull;
     private boolean craftToCloud;
@@ -55,6 +57,8 @@ public class CloudIndex {
         autoClear = innerTag.getBoolean("CraftingAutoClear");
         autoPull = innerTag.getBoolean("CraftingAutoPull");
         craftToCloud = innerTag.getBoolean("CraftingToCloud");
+        furnace.load(innerTag.getCompound("Furnace"), registries);
+        if (furnace.count() > 0) unlock(CloudFunction.FURNACE);
     }
 
     public void writeToNBT(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
@@ -75,6 +79,7 @@ public class CloudIndex {
         tag.putBoolean("CraftingAutoClear", autoClear);
         tag.putBoolean("CraftingAutoPull", autoPull);
         tag.putBoolean("CraftingToCloud", craftToCloud);
+        tag.put("Furnace", furnace.save(registries));
     }
 
     public void resize(int newSize){
@@ -125,6 +130,17 @@ public class CloudIndex {
     public boolean hasFunction(CloudFunction function) { return (functions & function.mask()) != 0; }
     public int functionMask() { return functions; }
     public CloudCraftingContainer getCrafting() { return crafting; }
+    public CloudFurnace getFurnace() { return furnace; }
+    public boolean uploadFunction(CloudFunction function) {
+        if (function == CloudFunction.FURNACE) {
+            if (!furnace.upload()) return false;
+            unlock(function);
+            return true;
+        }
+        if (hasFunction(function)) return false;
+        unlock(function);
+        return true;
+    }
     public boolean autoClear() { return autoClear; }
     public boolean autoPull() { return autoPull; }
     public boolean craftToCloud() { return craftToCloud; }

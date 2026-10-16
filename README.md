@@ -20,7 +20,7 @@
 
 ### 云端工作台
 
-工作台也能绑上气球送上天。第一次上传会为对应的云库存解锁合成区，左侧随之出现功能栏和工作台按钮；重复上传不会扩容，也不会增加额外效果。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。
+工作台也能绑上气球送上天。第一次上传会为对应的云库存解锁合成区，左侧随之出现功能栏和工作台按钮。多余的工作台作为物品存入云端，放不下就销毁，不会扩容或重复解锁。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。
 
 点击工作台按钮，就会在云库存和背包之间展开一个 3×3 合成区，再点一次收起。窗口高度不够时，会先减少云库存显示的行数，剩下的物品仍可滚动查看。合成格里的材料默认会保留，关闭界面、换一个连接同一库存的云箱或重新进入世界，都可以继续使用。公共库存的合成格也由使用同色库存的玩家共享。
 
@@ -36,9 +36,9 @@
 
 ### 漏斗与自动化
 
-把漏斗绑上气球送上天，就能为对应的云库存解锁 IO 功能。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。上传一次就够了，重复上传没有额外效果，也不会增加物品槽位。漏斗里装着的物品会一起存入云端，放不下的退回背包；玩家离线时则掉在上传位置。
+把漏斗绑上气球送上天，就能为对应的云库存解锁 IO 功能。普通气球解锁自己的同色库存，静电气球解锁同色公共库存。上传一次就够了，多余的漏斗作为物品存入云端，放不下就销毁，也不会增加物品槽位。漏斗里装着的物品会一起存入云端，放不下的退回背包；玩家离线时则掉在上传位置。
 
-解锁后，左侧会出现漏斗按钮。点击它，在云库存和背包之间展开面配置；工作台和 IO 面板可以互相切换。各格对应云箱的正面、左右、背面、顶部和底部，有相邻方块时显示它的图标，没有方块时留空。颜色表示这个面的用途：
+解锁后，左侧会出现漏斗按钮。点击它，在云库存和背包之间展开面配置；各功能面板可以互相切换。各格对应云箱的正面、左右、背面、顶部和底部，有相邻方块时显示它的图标，没有方块时留空。颜色表示这个面的用途：
 
 - **红色**：仅输入。
 - **蓝色**：仅输出，由相邻漏斗或管道提取。
@@ -52,6 +52,29 @@
 普通云箱会使用**最后修改 IO 设置的玩家在这个箱子上绑定的库存**，不会因为其他玩家走近而切换；玩家离线后仍然有效，区块需要保持加载。静电云箱使用其连接的公共库存。
 
 右侧的**收集掉落物**开关默认关闭，红色为关闭，绿色为开启。开启后会把云箱正上方的掉落物放入云库存，装不下的部分留在原地。每 8 tick 检查一次，每次最多处理 32 个掉落物实体。收集不需要开启顶部 IO，也不会收集侧面或下方的物品。自动化与收集都遵循云箱原有的天空和上方留空条件。
+
+### 云端熔炉
+
+熔炉也可以绑上气球上传。每个熔炉增加一路并行，最多 64 路，彼此可以同时处理不同配方。上传数量按私人玩家与气球颜色区分，静电气球则为同色公共库存增加熔炉。第 65 个开始，熔炉会作为物品存入云端，放不下就销毁。
+
+左侧熔炉按钮会展开输入、燃料和输出区。槽位随上传数量自动增加，已有材料不会因升级移位：
+
+| 上传总数 | 并行数 | 输入格 | 燃料格 | 输出格 |
+| --- | --- | --- | --- | --- |
+| 1～15 | 按实际数量 | 1 | 1 | 1 |
+| 16～31 | 按实际数量 | 2 | 2 | 2 |
+| 32～63 | 按实际数量 | 4 | 4 | 4 |
+| 64 | 64 | 9 | 9 | 9 |
+
+每一路按原版熔炉配方计时，单独消耗燃料；例如两个熔炉可以同时处理两个原料，燃烧中的煤炭会继续用于后续批次。多路共享可见槽位，原料完成前仍留在输入区，输出区满了就暂停。手动燃料支持原版及模组提供的有效熔炉燃料，熔岩桶会留下桶，烧干湿海绵也可以把燃料区的单个空桶变成水桶。
+
+右侧三个开关默认都关闭，红色为关、绿色为开，随这份云库存保存：
+
+- **自动输出**：将产物送到云端，放不下的留在输出槽，腾出空间后继续。
+- **自动寻找燃料**：从云端补充 `#cloudstorage:fuel` 标签内的有效燃料，默认只有煤炭和煤炭块。数据包可通过 `data/cloudstorage/tags/item/fuel.json` 扩展标签。
+- **输入熔炼**：需要上传漏斗，并在实际云箱上启用对应输入面。该面输入的可熔炼物品优先进入熔炉，放不下的部分以及其他物品照常存入云端；两边都满时拒收，不会销毁。即使没有上传普通箱子，也能直接向熔炉输入。顶部仍禁止 IO。
+
+自动输出和找燃料每 8 tick 检查一次。Shift 点击背包里的原料或燃料可以快速放入当前熔炉；Shift 点击熔炉内的物品优先取回背包，背包装不下再放云端。手动取出产物会获得累计熔炼经验。材料、燃烧时间和进度会随世界保存，关闭界面后继续工作；同一份公共库存的熔炉由玩家共享，不会因打开多个终端而重复加速。熔炉本身不增加云端物品容量。
 
 ### 流体存储
 
@@ -144,7 +167,9 @@ Mouse Tweaks 的开发检查可用 `-PmouseTweaksTestJar=本地JAR路径 -Pmouse
 
 工作台检查使用 `-PcraftingSmokeTest runClient`；IO 检查使用 `-PioSmokeTest runClient`，通过实际点击验证面切换、顶部锁定、批量配置、相邻方块显示、掉落物收集和面板切换，保存截图后退出。
 
-目前基础测试集有 32 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、IO 权限、真实漏斗传输和满仓掉落物收集等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
+熔炉检查使用 `-PfurnaceSmokeTest runClient`，会检查四档槽位、界面内升级、实际 Shift 存取、跨配方熔炼、自动输出和开关同步，并保存不同尺寸的界面截图。
+
+目前基础测试集有 41 项服务器 GameTest，覆盖存档、容量、容器存取、菜单、配方、工作台、IO 权限、真实漏斗传输、满仓掉落物收集、熔炉并行与燃料消耗、进度保存和重复上传等。客户端另有搜索、Shift 排列、渲染和交互检查；MI、Mekanism、Mouse Tweaks 及超越维度的联动可按上面的参数加载本地模组后单独验证。长期生存流程和实际多人联机还没有完整测试。发现问题可以到 [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) 留下复现步骤和日志。
 
 ### 作者与协议
 
@@ -168,7 +193,7 @@ Balloon arrows, Balloon Buddies, the Cloud Blower and sky structures are also in
 
 ### Cloud Crafting
 
-Tie a balloon to a crafting table and send it up. The first upload unlocks a crafting area for that cloud inventory and adds a workbench button in a new sidebar on the left. Uploading more workbenches has no additional effect. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory.
+Tie a balloon to a crafting table and send it up. The first upload unlocks a crafting area for that cloud inventory and adds a workbench button in a new sidebar on the left. Extra workbenches are stored as items in the cloud, or discarded when full; they do not expand storage or unlock more grids. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory.
 
 Click the workbench button to expand a 3×3 crafting grid between cloud storage and your inventory. Click again to collapse it. When the screen is too short, the terminal shows fewer storage rows and keeps the rest accessible by scrolling. Ingredients stay in the grid by default, even after closing the screen, opening another chest connected to the same cloud, or reloading the world. Players using the same public cloud also share its crafting grid.
 
@@ -184,9 +209,9 @@ With Beyond Dimensions integration enabled, clouds with an unlocked functional b
 
 ### Hoppers And Automation
 
-Send a hopper up with a balloon to unlock IO for that cloud inventory. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory. One hopper is enough. More hoppers have no additional effect and do not add item slots. Items inside the hopper travel with it. Overflow returns to your inventory, or drops at the upload location if you are offline.
+Send a hopper up with a balloon to unlock IO for that cloud inventory. Regular balloons unlock your personal inventory of that color; static balloons unlock the shared inventory. One hopper is enough. Extra hoppers are stored as items in the cloud, or discarded when full; they do not add item slots. Items inside the hopper travel with it. Overflow returns to your inventory, or drops at the upload location if you are offline.
 
-A hopper button then appears in the left sidebar. Click it to open the side configuration panel between cloud storage and your inventory. It shares this space with the crafting panel. The six squares represent the chest's front, left, right, back, top and bottom faces. Each shows the adjacent block's icon, or stays empty when there is no block. Colors indicate the allowed operations:
+A hopper button then appears in the left sidebar. Click it to open the side configuration panel between cloud storage and your inventory. The functional panels share this space. The six squares represent the chest's front, left, right, back, top and bottom faces. Each shows the adjacent block's icon, or stays empty when there is no block. Colors indicate the allowed operations:
 
 - **Red**: input only.
 - **Blue**: output only, extracted by a connected hopper or pipe.
@@ -200,6 +225,29 @@ These settings apply to both item and fluid connections through standard NeoForg
 A regular Cloud Chest uses **the linked inventory of the player who last changes its IO settings**. Other players approaching the chest do not change the automation target. It continues working while that player is offline, as long as the chunk is loaded. A Static Cloud Chest uses its shared inventory.
 
 The **Collect dropped items** switch on the right starts off: red means disabled, green means enabled. It stores items dropped directly above the chest and leaves any overflow in the world. Collection runs every 8 ticks and processes up to 32 item entities per pass. It works independently of the disabled top IO face and ignores items beside or below the chest. Both automation and collection follow the chest's usual sky access and clear space requirements.
+
+### Cloud Furnaces
+
+Send furnaces up with balloons to add parallel smelting. Each furnace adds one independent lane, up to 64, and lanes can process different recipes at the same time. Regular balloons add furnaces to your personal cloud of that color; static balloons add them to the shared cloud. From the 65th upload onward, extra furnaces are stored as items, or discarded if the cloud is full.
+
+The furnace button opens input, fuel and output groups. Uploading more furnaces automatically expands these groups without moving existing ingredients:
+
+| Uploaded furnaces | Parallel lanes | Input slots | Fuel slots | Output slots |
+| --- | --- | --- | --- | --- |
+| 1–15 | Actual count | 1 | 1 | 1 |
+| 16–31 | Actual count | 2 | 2 | 2 |
+| 32–63 | Actual count | 4 | 4 | 4 |
+| 64 | 64 | 9 | 9 | 9 |
+
+Each lane uses ordinary furnace recipes and consumes fuel independently. Two furnaces can process two ingredients at once, and burning fuel remains available for later batches. Lanes share the visible slots. Ingredients stay in the input until cooking finishes; full outputs pause processing. Manual fuel accepts valid vanilla and modded furnace fuels. Lava buckets leave an empty bucket, which wet sponge smelting can turn into a water bucket.
+
+The three switches on the right start disabled and are saved with the cloud inventory. Red means off; green means on:
+
+- **Auto output** moves results into cloud storage. Overflow stays in the output slots until space becomes available.
+- **Find fuel** refills valid fuels tagged `#cloudstorage:fuel` from cloud storage. The default tag contains coal and coal blocks. Data packs can extend `data/cloudstorage/tags/item/fuel.json`.
+- **Smelt incoming items** requires an uploaded hopper and an enabled input face on the physical chest. Incoming smeltable items enter the furnace first. Any remainder and other items go into cloud storage. Full destinations reject the transfer without discarding anything. This also works without uploaded item chests. The top face remains disabled.
+
+Automatic output and fuel refills run every 8 ticks. Shift-click ingredients or fuel in your inventory to insert them into the open furnace. Shift-click furnace items to take them into your inventory, with cloud storage accepting overflow. Taking results manually awards accumulated smelting experience. Ingredients, burning fuel and progress survive world saves, and processing continues after closing the screen. Players using the same public cloud share its furnace; opening more terminals does not speed it up. Furnaces do not add cloud item capacity.
 
 ### Fluid Storage
 
@@ -292,7 +340,9 @@ For the Mouse Tweaks check, use `-PmouseTweaksTestJar=/path/to/local.jar -Pmouse
 
 Use `-PcraftingSmokeTest runClient` for the crafting check. `-PioSmokeTest runClient` performs real clicks to check face modes, the fixed top face, batch configuration, adjacent block icons, dropped item collection and panel switching. Both save screenshots and exit.
 
-The base suite contains 32 server GameTests covering saves, capacity, container transfers, menus, recipes, crafting, IO permissions, real hopper transfers and collection with full storage. Separate client checks cover searches, Shift ordering, rendering and interaction. The parameters above load local mods for MI, Mekanism, Mouse Tweaks and Beyond Dimensions integration checks. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
+Use `-PfurnaceSmokeTest runClient` to check all four slot tiers, live upgrades, actual Shift transfers, parallel recipes, automatic output and switch synchronization. It also saves screenshots at different GUI sizes.
+
+The base suite contains 41 server GameTests covering saves, capacity, container transfers, menus, recipes, crafting, IO permissions, real hopper transfers, collection with full storage, furnace parallelism and fuel use, saved progress, and duplicate uploads. Separate client checks cover searches, Shift ordering, rendering and interaction. The parameters above load local mods for MI, Mekanism, Mouse Tweaks and Beyond Dimensions integration checks. Long survival sessions and real multiplayer have not been fully tested yet. Please report problems in [Issues](https://github.com/oritong/CloudStorage-Reborn/issues) with steps to reproduce and relevant logs.
 
 ### Credits And License
 
