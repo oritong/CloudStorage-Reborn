@@ -28,6 +28,5 @@ public final class CloudFunctionButton extends Button {
             graphics.renderItem(icon, getX() + 4, getY() + 4);
             graphics.renderItemDecorations(Minecraft.getInstance().font, icon, getX() + 4, getY() + 4);
         }
-        if (selected) graphics.fill(getX() - 6, getY(), getX() - 3, getY() + getHeight(), 0xFF26F500);
     }
 }
