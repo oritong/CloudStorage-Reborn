@@ -91,8 +91,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         addRenderableWidget(new CloudMiniButton(this, leftPos + 174, controlsY + 32, 2, button -> searchBox.setFocused(true)));
         int functionY = topPos + 8;
         for (var function : CloudFunction.values()) if (menu.hasFunction(function)) {
-            addRenderableWidget(new CloudCraftingButton(leftPos - 28, functionY, 24,
-                    function.block().getName(), new ItemStack(function.block()), -1, menu.isFunctionOpen(function),
+            addRenderableWidget(new CloudFunctionButton(leftPos - 28, functionY,
+                    function.block().getName(), new ItemStack(function.block()), menu.isFunctionOpen(function),
                     button -> sendButton(100 + function.ordinal())));
             functionY += 28;
         }
