@@ -15,6 +15,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CyclingSlotBackground;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -25,19 +27,48 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.SmithingTemplateItem;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvents;
+
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     public static final ResourceLocation TEXTURE = ResourceLocation.parse("cloudstorage_reborn:textures/gui/cloud_chest_gui.png");
+    private static final ResourceLocation SMITHING_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/smithing.png");
+    private static final ResourceLocation STONECUTTER_TEXTURE = ResourceLocation.withDefaultNamespace("textures/gui/container/stonecutter.png");
+    private static final ResourceLocation SMITHING_ERROR = ResourceLocation.withDefaultNamespace("container/smithing/error");
+    private static final ResourceLocation EMPTY_SMITHING_TRIM = ResourceLocation.withDefaultNamespace("item/empty_slot_smithing_template_armor_trim");
+    private static final ResourceLocation EMPTY_SMITHING_UPGRADE = ResourceLocation.withDefaultNamespace("item/empty_slot_smithing_template_netherite_upgrade");
+    private static final ResourceLocation STONECUTTER_SCROLLER = ResourceLocation.withDefaultNamespace("container/stonecutter/scroller");
+    private static final ResourceLocation STONECUTTER_SCROLLER_DISABLED = ResourceLocation.withDefaultNamespace("container/stonecutter/scroller_disabled");
+    private static final ResourceLocation STONECUTTER_RECIPE = ResourceLocation.withDefaultNamespace("container/stonecutter/recipe");
+    private static final ResourceLocation STONECUTTER_RECIPE_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("container/stonecutter/recipe_highlighted");
+    private static final ResourceLocation STONECUTTER_RECIPE_SELECTED = ResourceLocation.withDefaultNamespace("container/stonecutter/recipe_selected");
+    private static final List<ResourceLocation> EMPTY_SMITHING_TEMPLATES = List.of(EMPTY_SMITHING_TRIM, EMPTY_SMITHING_UPGRADE);
+    private static final Quaternionf ARMOR_STAND_ANGLE = new Quaternionf().rotationXYZ(0.43633232F, 0.0F, (float) Math.PI);
+    private static final Vector3f ARMOR_STAND_TRANSLATION = new Vector3f();
+    private static final Component MISSING_SMITHING_TEMPLATE = Component.translatable("container.upgrade.missing_template_tooltip");
+    private static final Component SMITHING_ERROR_TOOLTIP = Component.translatable("container.upgrade.error_tooltip");
     private EditBox searchBox;
     private int scrollRow;
     private boolean scrolling;
@@ -54,6 +85,17 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
     public int mode;
     private int visibleRows = 6;
     private int layoutFlags = -1;
+    private ArmorStand armorStandPreview;
+    private ItemStack previewStack = ItemStack.EMPTY;
+    private ItemStack stoneRecipeInput = ItemStack.EMPTY;
+    private List<RecipeHolder<StonecutterRecipe>> stoneRecipes = List.of();
+    private float stoneScrollOffs;
+    private boolean stoneScrolling;
+    private int stoneStartIndex;
+    private boolean displayStoneRecipes;
+    private CyclingSlotBackground smithingTemplateIcon;
+    private CyclingSlotBackground smithingBaseIcon;
+    private CyclingSlotBackground smithingAdditionIcon;
 
     public CloudChestScreen(CloudChestMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -71,6 +113,11 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         super.init();
         menu.layoutSlots(visibleRows);
         layoutFlags = layoutState();
+        smithingTemplateIcon = new CyclingSlotBackground(menu.smithingStart());
+        smithingBaseIcon = new CyclingSlotBackground(menu.smithingStart() + 1);
+        smithingAdditionIcon = new CyclingSlotBackground(menu.smithingStart() + 2);
+        ensureArmorStandPreview();
+        refreshStoneRecipes();
         String previous = searchBox == null ? "" : searchBox.getValue();
         searchBox = new EditBox(font, leftPos + 82, topPos + 6, 80, 9, Component.translatable("itemGroup.search"));
         searchBox.setMaxLength(50);
@@ -133,15 +180,6 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                         value), ItemStack.EMPTY, 4 + i, states[i],
                         button -> sendButton(option == 1 && hasShiftDown() ? 403 : 400 + option)));
             }
-        }
-        if (menu.isStonecutterOpen()) {
-            int panelY = topPos + 18 + visibleRows * 18;
-            addRenderableWidget(new CloudCraftingButton(leftPos + 174, panelY + 17, 14,
-                    Component.translatable("cloudstorage_reborn.stonecutter.previous"), ItemStack.EMPTY, 1, false,
-                    button -> sendButton(500)));
-            addRenderableWidget(new CloudCraftingButton(leftPos + 174, panelY + 34, 14,
-                    Component.translatable("cloudstorage_reborn.stonecutter.next"), ItemStack.EMPTY, 2, false,
-                    button -> sendButton(501)));
         }
         scrollRow = Math.min(scrollRow, maxScrollRow());
         updateDisplay();
@@ -280,6 +318,8 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                                 menu.getTerminalEntries().stream().filter(CloudTerminalEntry::isFluid).count(), menu.getFluidTypeCapacity())), mouseX, mouseY);
             } else graphics.renderTooltip(font, getTooltipFromContainerItem(entry.item()), entry.item().getTooltipImage(), entry.item(), mouseX, mouseY);
         } else renderTooltip(graphics, mouseX, mouseY);
+        renderStoneRecipeTooltip(graphics, mouseX, mouseY);
+        renderSmithingTooltip(graphics, mouseX, mouseY);
     }
 
     /** Describe the two different actions of a carried container, without covering the grid with storage details. */
@@ -349,20 +389,10 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
                     leftPos + 8, barY + 7, 4210752, false);
         }
         if (menu.isSmithingOpen()) {
-            graphics.drawString(font, Component.translatable("cloudstorage_reborn.smithing.title"), leftPos + 8, topPos + gridEnd + 5, 4210752, false);
-            for (int i = 0; i < 4; i++) {
-                Slot slot = menu.slots.get(menu.smithingStart() + i);
-                graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
-            }
-            graphics.drawString(font, "→", leftPos + 100, topPos + gridEnd + 40, 4210752, false);
+            renderSmithingPanel(graphics, topPos + gridEnd, partialTick);
         }
         if (menu.isStonecutterOpen()) {
-            graphics.drawString(font, Component.translatable("cloudstorage_reborn.stonecutter.title"), leftPos + 8, topPos + gridEnd + 5, 4210752, false);
-            for (int i = 0; i < 2; i++) {
-                Slot slot = menu.slots.get(menu.stonecutterStart() + i);
-                graphics.blit(TEXTURE, leftPos + slot.x - 1, topPos + slot.y - 1, 0, 222, 18, 18);
-            }
-            graphics.drawString(font, "→", leftPos + 82, topPos + gridEnd + 40, 4210752, false);
+            renderStonecutterPanel(graphics, topPos + gridEnd, mouseX, mouseY);
         }
         graphics.blit(TEXTURE, leftPos, topPos + gridEnd + menu.getPanelHeight(), 0, 126, imageWidth, 96);
         if (menu.getPanelHeight() > 0) graphics.fill(leftPos + 173, topPos + gridEnd + menu.getPanelHeight(),
@@ -394,6 +424,141 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         graphics.blit(TEXTURE, leftPos + 79, topPos + 4, 36, 222, 90, 12);
         searchBox.render(graphics, mouseX, mouseY, partialTick);
     }
+
+    private void renderSmithingPanel(GuiGraphics graphics, int panelTop, float partialTick) {
+        graphics.blit(SMITHING_TEXTURE, leftPos, panelTop, 0, 0, 176, 78);
+        graphics.drawString(font, Component.translatable("cloudstorage_reborn.smithing.title"), leftPos + 44, panelTop + 15, 4210752, false);
+        smithingTemplateIcon.render(menu, graphics, partialTick, leftPos, topPos);
+        smithingBaseIcon.render(menu, graphics, partialTick, leftPos, topPos);
+        smithingAdditionIcon.render(menu, graphics, partialTick, leftPos, topPos);
+        ItemStack templateStack = menu.getStations().smithing().getItem(0);
+        ItemStack result = menu.slots.get(menu.smithingStart() + 3).getItem();
+        if (!templateStack.isEmpty() && !menu.getStations().smithing().getItem(1).isEmpty()
+                && !menu.getStations().smithing().getItem(2).isEmpty() && result.isEmpty()) {
+            graphics.blitSprite(SMITHING_ERROR, leftPos + 65, panelTop + 46, 28, 21);
+        }
+        updateArmorStandPreview(result);
+        if (armorStandPreview != null) {
+            InventoryScreen.renderEntityInInventory(graphics, leftPos + 141, panelTop + 75, 25,
+                    ARMOR_STAND_TRANSLATION, ARMOR_STAND_ANGLE, null, armorStandPreview);
+        }
+    }
+
+    private void renderStoneRecipeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!menu.isStonecutterOpen() || !displayStoneRecipes) return;
+        int panelTop = stonePanelTop();
+        int end = Math.min(stoneStartIndex + 12, stoneRecipes.size());
+        for (int i = stoneStartIndex; i < end; i++) {
+            int visible = i - stoneStartIndex;
+            int x = leftPos + 52 + visible % 4 * 16;
+            int y = panelTop + 14 + visible / 4 * 18 + 2;
+            if (mouseX >= x && mouseX < x + 16 && mouseY >= y - 2 && mouseY < y + 16) {
+                graphics.renderTooltip(font, stoneRecipes.get(i).value().getResultItem(minecraft.level.registryAccess()), mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
+    private void renderSmithingTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!menu.isSmithingOpen()) return;
+        int panelTop = topPos + 18 + visibleRows * 18;
+        int start = menu.smithingStart();
+        ItemStack template = menu.getStations().smithing().getItem(0);
+        Component tooltip = null;
+        if (!template.isEmpty() && !menu.getStations().smithing().getItem(1).isEmpty()
+                && !menu.getStations().smithing().getItem(2).isEmpty()
+                && menu.slots.get(start + 3).getItem().isEmpty()
+                && mouseX >= leftPos + 65 && mouseX < leftPos + 93
+                && mouseY >= panelTop + 46 && mouseY < panelTop + 67) {
+            tooltip = SMITHING_ERROR_TOOLTIP;
+        } else if (hoveredSlot != null) {
+            if (template.isEmpty() && hoveredSlot.index == start) {
+                tooltip = MISSING_SMITHING_TEMPLATE;
+            } else if (template.getItem() instanceof SmithingTemplateItem smithingTemplate) {
+                if (hoveredSlot.index == start + 1 && menu.getStations().smithing().getItem(1).isEmpty())
+                    tooltip = smithingTemplate.getBaseSlotDescription();
+                else if (hoveredSlot.index == start + 2 && menu.getStations().smithing().getItem(2).isEmpty())
+                    tooltip = smithingTemplate.getAdditionSlotDescription();
+            }
+        }
+        if (tooltip != null) graphics.renderTooltip(font, font.split(tooltip, 115), mouseX, mouseY);
+    }
+
+    private void ensureArmorStandPreview() {
+        if (armorStandPreview == null && minecraft.level != null) {
+            armorStandPreview = new ArmorStand(minecraft.level, 0, 0, 0);
+            armorStandPreview.setNoBasePlate(true);
+            armorStandPreview.setShowArms(true);
+            armorStandPreview.yBodyRot = 210;
+            armorStandPreview.setXRot(25);
+            armorStandPreview.yHeadRot = armorStandPreview.getYRot();
+            armorStandPreview.yHeadRotO = armorStandPreview.getYRot();
+        }
+    }
+
+    private void updateArmorStandPreview(ItemStack stack) {
+        ensureArmorStandPreview();
+        if (armorStandPreview == null || ItemStack.matches(previewStack, stack)) return;
+        previewStack = stack.copy();
+        for (EquipmentSlot slot : EquipmentSlot.values()) armorStandPreview.setItemSlot(slot, ItemStack.EMPTY);
+        if (!stack.isEmpty()) {
+            EquipmentSlot slot = stack.getItem() instanceof ArmorItem armor ? armor.getEquipmentSlot() : EquipmentSlot.OFFHAND;
+            armorStandPreview.setItemSlot(slot, stack.copy());
+        }
+    }
+
+    private void renderStonecutterPanel(GuiGraphics graphics, int panelTop, int mouseX, int mouseY) {
+        graphics.blit(STONECUTTER_TEXTURE, leftPos, panelTop, 0, 0, 176, 78);
+        graphics.drawString(font, Component.translatable("cloudstorage_reborn.stonecutter.title"), leftPos + 8, panelTop + 5, 4210752, false);
+        refreshStoneRecipes();
+        int scroll = (int) (41.0F * stoneScrollOffs);
+        graphics.blitSprite(isStoneScrollerActive() ? STONECUTTER_SCROLLER : STONECUTTER_SCROLLER_DISABLED,
+                leftPos + 119, panelTop + 15 + scroll, 12, 15);
+        if (!displayStoneRecipes) return;
+        int end = Math.min(stoneStartIndex + 12, stoneRecipes.size());
+        int selected = menu.getStations().stoneRecipe();
+        for (int i = stoneStartIndex; i < end; i++) {
+            int visible = i - stoneStartIndex;
+            int x = leftPos + 52 + visible % 4 * 16;
+            int y = panelTop + 14 + visible / 4 * 18 + 2;
+            ResourceLocation sprite = i == selected ? STONECUTTER_RECIPE_SELECTED
+                    : mouseX >= x && mouseX < x + 16 && mouseY >= y - 2 && mouseY < y + 16
+                    ? STONECUTTER_RECIPE_HIGHLIGHTED : STONECUTTER_RECIPE;
+            graphics.blitSprite(sprite, x, y - 1, 16, 18);
+            graphics.renderItem(stoneRecipes.get(i).value().getResultItem(minecraft.level.registryAccess()), x, y);
+        }
+    }
+
+    private void refreshStoneRecipes() {
+        ItemStack input = menu.getStations().stonecutter().getItem(0);
+        if (!input.is(stoneRecipeInput.getItem())) {
+            stoneRecipeInput = input.copy();
+            stoneRecipes = input.isEmpty() || minecraft.level == null ? List.of()
+                    : minecraft.level.getRecipeManager().getRecipesFor(RecipeType.STONECUTTING,
+                    new SingleRecipeInput(input), minecraft.level);
+            displayStoneRecipes = !stoneRecipes.isEmpty();
+            stoneScrollOffs = 0;
+            stoneStartIndex = 0;
+        }
+        int maxRows = getStoneOffscreenRows();
+        if (maxRows <= 0) {
+            stoneScrollOffs = 0;
+            stoneStartIndex = 0;
+        } else {
+            stoneScrollOffs = Mth.clamp(stoneScrollOffs, 0, 1);
+            stoneStartIndex = (int) (stoneScrollOffs * maxRows + 0.5F) * 4;
+        }
+    }
+
+    private Optional<SmithingTemplateItem> smithingTemplate() {
+        ItemStack stack = menu.getStations().smithing().getItem(0);
+        return !stack.isEmpty() && stack.getItem() instanceof SmithingTemplateItem template
+                ? Optional.of(template) : Optional.empty();
+    }
+
+    private int getStoneOffscreenRows() { return Math.max(0, (stoneRecipes.size() + 3) / 4 - 3); }
+    private boolean isStoneScrollerActive() { return displayStoneRecipes && stoneRecipes.size() > 12; }
+    private int stonePanelTop() { return topPos + 18 + visibleRows * 18; }
 
     private void renderFluid(GuiGraphics graphics, CloudTerminalEntry entry, int x, int y) {
         var extension = IClientFluidTypeExtensions.of(entry.fluid().getFluid());
@@ -439,6 +604,28 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
 
     @Override public boolean mouseClicked(double x, double y, int button) {
         updateDisplay();
+        if (menu.isStonecutterOpen()) {
+            refreshStoneRecipes();
+            int panelTop = stonePanelTop();
+            if (displayStoneRecipes) {
+                int end = Math.min(stoneStartIndex + 12, stoneRecipes.size());
+                for (int i = stoneStartIndex; i < end; i++) {
+                    int visible = i - stoneStartIndex;
+                    int recipeX = leftPos + 52 + visible % 4 * 16;
+                    int recipeY = panelTop + 14 + visible / 4 * 18 + 2;
+                    if (button == 0 && x >= recipeX && x < recipeX + 16 && y >= recipeY - 2 && y < recipeY + 16) {
+                        sendButton(600 + i);
+                        minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_STONECUTTER_SELECT_RECIPE, 1.0F));
+                        return true;
+                    }
+                }
+                if (button == 0 && isStoneScrollerActive() && x >= leftPos + 119 && x < leftPos + 131
+                        && y >= panelTop + 9 && y < panelTop + 63) {
+                    stoneScrolling = true;
+                    return true;
+                }
+            }
+        }
         int index = gridIndex(x, y);
         if (index >= 0) {
             consumeRelease = true;
@@ -461,21 +648,45 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
 
     @Override public boolean mouseReleased(double x, double y, int button) {
         scrolling = false;
+        stoneScrolling = false;
         if (consumeRelease) { consumeRelease = false; return true; }
         return super.mouseReleased(x, y, button);
     }
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        if (stoneScrolling && isStoneScrollerActive()) {
+            int panelTop = stonePanelTop();
+            stoneScrollOffs = Mth.clamp(((float) y - panelTop - 21.5F) / 39.0F, 0.0F, 1.0F);
+            stoneStartIndex = (int) (stoneScrollOffs * getStoneOffscreenRows() + 0.5F) * 4;
+            return true;
+        }
         if (scrolling) { scrollRow = Math.round(Mth.clamp(((float) y - topPos - 25.5F) / Math.max(1, visibleRows * 18 - 15F), 0, 1) * maxScrollRow()); return true; }
         if (consumeRelease) return true;
         return super.mouseDragged(x, y, button, dx, dy);
     }
     @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+        int panelTop = stonePanelTop();
+        if (menu.isStonecutterOpen() && x >= leftPos + 52 && x < leftPos + 131
+                && y >= panelTop + 14 && y < panelTop + 68) {
+            refreshStoneRecipes();
+            if (isStoneScrollerActive()) {
+                stoneScrollOffs = Mth.clamp(stoneScrollOffs - (float) vertical / getStoneOffscreenRows(), 0.0F, 1.0F);
+                stoneStartIndex = (int) (stoneScrollOffs * getStoneOffscreenRows() + 0.5F) * 4;
+            }
+            return true;
+        }
         scrollRow = Mth.clamp(scrollRow - (int) Math.signum(vertical), 0, maxScrollRow());
         return true;
     }
     @Override protected void containerTick() {
         int flags = layoutState();
         if (flags != layoutFlags) rebuildWidgets();
+        if (menu.isSmithingOpen()) {
+            smithingTemplateIcon.tick(EMPTY_SMITHING_TEMPLATES);
+            var template = smithingTemplate();
+            smithingBaseIcon.tick(template.map(SmithingTemplateItem::getBaseSlotEmptyIcons).orElse(List.of()));
+            smithingAdditionIcon.tick(template.map(SmithingTemplateItem::getAdditionalSlotEmptyIcons).orElse(List.of()));
+        }
+        refreshStoneRecipes();
         updateDisplay();
     }
 }

@@ -83,6 +83,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
     private final CloudStations stations;
     private final ResultContainer smithingResult = new ResultContainer();
     private final ResultContainer stonecutterResult = new ResultContainer();
+    private ItemStack observedStoneInput = ItemStack.EMPTY;
     private AbstractCloudChestBlockEntity chest;
     private BlockPos clientChestPos;
     private Direction clientChestFront = Direction.NORTH;
@@ -111,6 +112,7 @@ public class CloudChestMenu extends AbstractContainerMenu {
         this.crafting = cloud == null ? new CloudCraftingContainer() : cloud.getCrafting();
         this.furnace = cloud == null ? new CloudFurnace() : cloud.getFurnace();
         this.stations = cloud == null ? new CloudStations() : cloud.getStations();
+        this.observedStoneInput = stations.stonecutter().getItem(0).copy();
         containerIn.startOpen(playerInv.player);
         int clampedSize = Math.min(containerIn.getContainerSize(), 54);
 
@@ -231,11 +233,12 @@ public class CloudChestMenu extends AbstractContainerMenu {
         } else if (button == 403) {
             if (!isFurnaceOpen()) return false;
             furnace.setPriorityFuel(true);
-        } else if (button == 500 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
-            stations.setStoneRecipe(stations.stoneRecipe() - 1);
-            updateStationResults();
-        } else if (button == 501 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
-            stations.setStoneRecipe(stations.stoneRecipe() + 1);
+        } else if (button >= 600 && hasFunction(CloudFunction.STONECUTTER) && isStonecutterOpen()) {
+            var recipes = owner.level().getRecipeManager().getRecipesFor(RecipeType.STONECUTTING,
+                    new SingleRecipeInput(stations.stonecutter().getItem(0)), owner.level());
+            int recipeIndex = button - 600;
+            if (recipeIndex >= recipes.size()) return false;
+            stations.setStoneRecipe(recipeIndex);
             updateStationResults();
         } else if (button >= 300) {
             if (!isIOOpen() || chest == null || chest.isRemoved() || chest.getLevel() != player.level()
@@ -354,8 +357,14 @@ public class CloudChestMenu extends AbstractContainerMenu {
         @Override public void onTake(Player player, ItemStack stack) {
             if (owner.level().isClientSide()) return;
             if (smithing) {
+                if (player instanceof ServerPlayer serverPlayer) smithingResult.awardUsedRecipes(serverPlayer,
+                        List.of(stations.smithing().getItem(0), stations.smithing().getItem(1), stations.smithing().getItem(2)));
                 for (int i = 0; i < 3; i++) stations.smithing().removeItem(i, 1);
-            } else stations.stonecutter().removeItem(0, 1);
+            } else {
+                if (player instanceof ServerPlayer serverPlayer) stonecutterResult.awardUsedRecipes(serverPlayer,
+                        List.of(stations.stonecutter().getItem(0)));
+                stations.stonecutter().removeItem(0, 1);
+            }
             stack.getItem().onCraftedBy(stack, player.level(), player);
             updateStationResults();
             fluidChanged.run();
@@ -388,19 +397,20 @@ public class CloudChestMenu extends AbstractContainerMenu {
             replacement.index = furnaceStart() + i;
             slots.set(replacement.index, replacement);
         }
-        int stationY = gridY + 18;
+        int smithingY = gridY + 30;
         for (int i = 0; i < 3; i++) {
-            Slot replacement = stationInputSlot(stations.smithing(), i, true, 30 + i * 18, stationY);
+            Slot replacement = stationInputSlot(stations.smithing(), i, true, 8 + i * 18, smithingY);
             replacement.index = smithingStart() + i;
             slots.set(replacement.index, replacement);
         }
-        Slot smithResult = new StationResultSlot(smithingResult, true, 124, stationY + 9);
+        Slot smithResult = new StationResultSlot(smithingResult, true, 98, smithingY);
         smithResult.index = smithingStart() + 3;
         slots.set(smithResult.index, smithResult);
-        Slot stoneInput = stationInputSlot(stations.stonecutter(), 0, false, 64, stationY);
+        int stonecutterY = gridY + 15;
+        Slot stoneInput = stationInputSlot(stations.stonecutter(), 0, false, 20, stonecutterY);
         stoneInput.index = stonecutterStart();
         slots.set(stoneInput.index, stoneInput);
-        Slot stoneResult = new StationResultSlot(stonecutterResult, false, 106, stationY);
+        Slot stoneResult = new StationResultSlot(stonecutterResult, false, 143, stonecutterY);
         stoneResult.index = stonecutterStart() + 1;
         slots.set(stoneResult.index, stoneResult);
     }
@@ -433,16 +443,23 @@ public class CloudChestMenu extends AbstractContainerMenu {
         smithingResult.setItem(0, smithOutput);
 
         ItemStack stoneOutput = ItemStack.EMPTY;
-        var stoneInput = new SingleRecipeInput(stations.stonecutter().getItem(0));
+        ItemStack stoneInputStack = stations.stonecutter().getItem(0);
+        if (!stoneInputStack.is(observedStoneInput.getItem())) {
+            observedStoneInput = stoneInputStack.copy();
+            stations.setStoneRecipe(-1);
+        }
+        var stoneInput = new SingleRecipeInput(stoneInputStack);
         var stoneRecipes = owner.level().getRecipeManager().getRecipesFor(RecipeType.STONECUTTING, stoneInput, owner.level());
-        if (hasFunction(CloudFunction.STONECUTTER) && !stoneRecipes.isEmpty()) {
-            int index = Math.clamp(stations.stoneRecipe(), 0, stoneRecipes.size() - 1);
-            stations.setStoneRecipe(index);
-            var recipe = stoneRecipes.get(index);
+        int selectedRecipe = stations.stoneRecipe();
+        if (selectedRecipe >= stoneRecipes.size()) {
+            selectedRecipe = -1;
+            stations.setStoneRecipe(-1);
+        }
+        if (hasFunction(CloudFunction.STONECUTTER) && selectedRecipe >= 0 && !stoneRecipes.isEmpty()) {
+            var recipe = stoneRecipes.get(selectedRecipe);
             stoneOutput = recipe.value().assemble(stoneInput, owner.level().registryAccess());
             stonecutterResult.setRecipeUsed(recipe);
         } else {
-            stations.setStoneRecipe(0);
             stonecutterResult.setRecipeUsed(null);
         }
         stonecutterResult.setItem(0, stoneOutput);

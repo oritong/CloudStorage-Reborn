@@ -8,12 +8,12 @@ import net.minecraft.world.item.ItemStack;
 public final class CloudStations {
     private final CloudChestContainer smithing = new CloudChestContainer(3);
     private final CloudChestContainer stonecutter = new CloudChestContainer(1);
-    private int stoneRecipe;
+    private int stoneRecipe = -1;
 
     public CloudChestContainer smithing() { return smithing; }
     public CloudChestContainer stonecutter() { return stonecutter; }
     public int stoneRecipe() { return stoneRecipe; }
-    public void setStoneRecipe(int value) { stoneRecipe = Math.max(0, value); }
+    public void setStoneRecipe(int value) { stoneRecipe = Math.max(-1, value); }
 
     public CompoundTag save(HolderLookup.Provider registries) {
         CompoundTag tag = new CompoundTag();
@@ -26,7 +26,7 @@ public final class CloudStations {
     public void load(CompoundTag tag, HolderLookup.Provider registries) {
         smithing.fromTag(tag.getList("Smithing", 10), registries);
         stonecutter.fromTag(tag.getList("Stonecutter", 10), registries);
-        stoneRecipe = Math.max(0, tag.getInt("StoneRecipe"));
+        stoneRecipe = tag.contains("StoneRecipe") ? Math.max(-1, tag.getInt("StoneRecipe")) : -1;
     }
 
     public void clearSmithing() {

@@ -13,8 +13,6 @@
   "cloudstorage_reborn.furnace.smelt_incoming": "Smelt incoming items: %s\nRequires an uploaded hopper and an enabled input face.\nIncoming smeltable items enter the furnace first; the rest goes into cloud storage.",
   "cloudstorage_reborn.smithing.title": "Smithing table",
   "cloudstorage_reborn.stonecutter.title": "Stonecutter",
-  "cloudstorage_reborn.stonecutter.previous": "Previous stonecutting recipe",
-  "cloudstorage_reborn.stonecutter.next": "Next stonecutting recipe",
   "cloudstorage_reborn.io.title": "Input/Output",
   "cloudstorage_reborn.io.mode.0": "Disabled",
   "cloudstorage_reborn.io.mode.1": "Input only",

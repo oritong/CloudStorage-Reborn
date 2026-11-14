@@ -34,7 +34,7 @@
 
 ### 云端锻造台与切石机
 
-锻造台和切石机也可以上传到云端。第一次上传会在左侧解锁对应按钮；重复上传只会把方块作为普通物品放入云存储，云端已满时销毁，不会再增加面板。锻造台使用原版锻造配方，保留模板、基础物品和添加物三格输入；切石机使用原版切石配方，并可用右侧上下按钮切换同一输入对应的多个结果。输入、配方索引和功能解锁都会随云库存保存，上传多个也不会额外加速或复制工作台。
+锻造台和切石机也可以上传到云端。第一次上传会在左侧解锁对应按钮；重复上传只会把方块作为普通物品放入云存储，云端已满时销毁，不会再增加面板。锻造台使用原版锻造配方和槽位布局，保留模板、基础物品和添加物三格输入；切石机使用原版切石配方列表，可点击配方并滚动查看同一输入对应的多个结果。输入、配方索引和功能解锁都会随云库存保存，上传多个也不会额外加速或复制工作台。
 
 开启超越维度联动时，已解锁功能方块的云箱会保留云端终端，方便使用合成区；原有的后台转存仍按配置运行，合成格里的材料不会被转存。
 
@@ -211,7 +211,7 @@ An ordinary click still picks the result up on your cursor. Each Shift click per
 
 ### Cloud Smithing And Stonecutting
 
-Smithing tables and stonecutters can also be sent up with balloons. The first upload unlocks the matching sidebar button; extra copies are stored as ordinary items and discarded when the cloud is full. They do not add more panels or speed up processing. The smithing panel uses vanilla smithing recipes with template, base and addition inputs. The stonecutter uses vanilla stonecutting recipes and provides small previous/next controls when one input has multiple results. Inputs, the selected stonecutting recipe and the unlocks are saved with the cloud inventory.
+Smithing tables and stonecutters can also be sent up with balloons. The first upload unlocks the matching sidebar button; extra copies are stored as ordinary items and discarded when the cloud is full. They do not add more panels or speed up processing. The smithing panel follows the vanilla layout and recipes with template, base and addition inputs. The stonecutter follows the vanilla recipe list, including click selection and scrolling when one input has multiple results. Inputs, the selected stonecutting recipe and the unlocks are saved with the cloud inventory.
 
 With Beyond Dimensions integration enabled, clouds with an unlocked functional block keep the cloud terminal so the crafting grid remains accessible. Background transfers still follow the configured interval and leave crafting ingredients alone.
 

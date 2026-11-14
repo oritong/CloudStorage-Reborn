@@ -44,6 +44,13 @@ public final class CloudStationTests {
         player.containerMenu = menu;
         menu.clickMenuButton(player, 103);
         menu.layoutSlots(6);
+        helper.assertTrue(menu.slots.get(menu.smithingStart()).x == 8
+                        && menu.slots.get(menu.smithingStart() + 1).x == 26
+                        && menu.slots.get(menu.smithingStart() + 2).x == 44
+                        && menu.slots.get(menu.smithingStart() + 3).x == 98,
+                "Smithing slots did not match vanilla horizontal placement");
+        helper.assertTrue(menu.slots.get(menu.smithingStart()).y == 174,
+                "Smithing inputs did not match the vanilla panel row");
         cloud.getStations().smithing().setItem(0, new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
         cloud.getStations().smithing().setItem(1, new ItemStack(Items.DIAMOND_SWORD));
         cloud.getStations().smithing().setItem(2, new ItemStack(Items.NETHERITE_INGOT));
@@ -66,20 +73,34 @@ public final class CloudStationTests {
         menu.clickMenuButton(player, 104);
         menu.layoutSlots(6);
         menu.broadcastChanges();
-        helper.assertTrue(!menu.slots.get(menu.stonecutterStart() + 1).getItem().isEmpty(), "Stonecutter did not list a vanilla recipe");
-        menu.clickMenuButton(player, 501);
+        helper.assertTrue(menu.slots.get(menu.stonecutterStart()).x == 20
+                        && menu.slots.get(menu.stonecutterStart() + 1).x == 143
+                        && menu.slots.get(menu.stonecutterStart()).y == 159,
+                "Stonecutter slots did not match vanilla placement");
+        helper.assertTrue(menu.slots.get(menu.stonecutterStart() + 1).getItem().isEmpty(), "Stonecutter selected a recipe before the player chose one");
+        helper.assertTrue(menu.clickMenuButton(player, 600), "Stonecutter rejected its first vanilla recipe");
         menu.broadcastChanges();
-        helper.assertTrue(menu.slots.get(menu.stonecutterStart() + 1).getItem().getCount() > 0, "Stonecutter recipe selection cleared the result");
+        helper.assertTrue(menu.slots.get(menu.stonecutterStart() + 1).getItem().getCount() > 0, "Stonecutter recipe selection did not show a result");
+        cloud.getStations().stonecutter().setItem(0, new ItemStack(Items.COBBLESTONE));
+        menu.broadcastChanges();
+        helper.assertTrue(cloud.getStations().stoneRecipe() == -1
+                        && menu.slots.get(menu.stonecutterStart() + 1).getItem().isEmpty(),
+                "Stonecutter kept the previous selection after its input changed");
+        helper.assertTrue(menu.clickMenuButton(player, 600), "Stonecutter rejected a recipe for the new input");
+        menu.broadcastChanges();
         menu.clicked(menu.stonecutterStart() + 1, 0, ClickType.PICKUP, player);
         helper.assertTrue(cloud.getStations().stonecutter().getItem(0).isEmpty(),
                 "Stonecutter did not consume its input: " + cloud.getStations().stonecutter().getItem(0));
         helper.assertTrue(!player.containerMenu.getCarried().isEmpty() && player.containerMenu.getCarried().getItem() != Items.STONE,
                 "Stonecutter did not return its selected result: " + player.containerMenu.getCarried());
         cloud.getStations().stonecutter().setItem(0, new ItemStack(Items.STONE));
+        menu.broadcastChanges();
+        menu.clickMenuButton(player, 600);
         var saved = new net.minecraft.nbt.CompoundTag();
         cloud.writeToNBT(saved, helper.getLevel().registryAccess());
         var restored = new CloudIndex(saved, helper.getLevel().registryAccess());
-        helper.assertTrue(restored.hasFunction(CloudFunction.STONECUTTER) && restored.getStations().stonecutter().getItem(0).is(Items.STONE),
+        helper.assertTrue(restored.hasFunction(CloudFunction.STONECUTTER) && restored.getStations().stonecutter().getItem(0).is(Items.STONE)
+                        && restored.getStations().stoneRecipe() == 0,
                 "Stonecutter input or station unlock did not persist");
         helper.succeed();
     }
