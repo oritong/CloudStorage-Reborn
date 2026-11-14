@@ -146,12 +146,13 @@ public class CloudChestScreen extends AbstractContainerScreen<CloudChestMenu> {
         if (menu.isCraftingOpen()) {
             boolean[] enabled = { menu.isAutoClear(), menu.isAutoPull(), menu.isCraftToCloud() };
             String[] names = { "auto_clear", "auto_pull", "to_cloud" };
+            int[] icons = { 0, 2, 1 };
             for (int i = 0; i < 3; i++) {
                 final int action = i;
                 Component tooltip = Component.translatable("cloudstorage_reborn.crafting." + names[i],
                         Component.translatable(enabled[i] ? "options.on" : "options.off"));
                 addRenderableWidget(new CloudCraftingButton(leftPos + 174, topPos + 18 + visibleRows * 18 + 16 + i * 18,
-                        14, tooltip, ItemStack.EMPTY, i, enabled[i], button -> sendButton(200 + action)));
+                        14, tooltip, ItemStack.EMPTY, icons[i], enabled[i], button -> sendButton(200 + action)));
             }
         }
         if (menu.isIOOpen()) {
